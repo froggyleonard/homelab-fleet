@@ -7,7 +7,7 @@ spec:
     spec:
       initContainers:
         - name: install-ksops
-          image: viaduct/ksops:v4.5.1
+          image: viaductoss/ksops:v4.5.1
           command: ["/bin/sh", "-c"]
           args:
             - cp /usr/local/bin/ksops /custom-tools/ &&
