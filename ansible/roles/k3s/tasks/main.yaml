@@ -1,0 +1,11 @@
+---
+# k3s role — apps-cp1 is the (tainted) server; w1/w2 join as agents.
+# TODO(P2): full implementation —
+#   - install k3s (pinned) with: --disable traefik,servicelb,metrics-server
+#     --flannel-backend=none --disable-kube-proxy --disable-network-policy (Cilium KPR)
+#   - server: taint node-role.kubernetes.io/control-plane:NoSchedule
+#   - agents: join via token; format+mount Longhorn disk at /var/lib/longhorn
+#   - apps-w1: format+mount 20G SSD disk for PostgreSQL local PV
+- name: Placeholder — implemented in P2
+  ansible.builtin.debug:
+    msg: "k3s role: implementation lands before P5 execution"

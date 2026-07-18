@@ -1,0 +1,25 @@
+---
+# Baseline for every fleet node. Fleshed out in P2; applied in P3/P5.
+- name: Update apt cache and upgrade
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: safe
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - qemu-guest-agent
+      - unattended-upgrades
+      - nftables
+      - open-iscsi # Longhorn prerequisite (workers)
+      - chrony
+    state: present
+
+- name: Enable qemu-guest-agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+# TODO(P2): sshd hardening (key-only, no root), sysctl k8s prereqs,
+# kernel modules (br_netfilter, overlay), swap off, unattended-upgrades config

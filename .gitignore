@@ -1,0 +1,29 @@
+# Terraform — state and workdirs never in git
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+
+# Secrets & keys — only SOPS-encrypted files (*.sops.yaml / *.enc.yaml) belong in git
+*.pem
+*.key
+*.age
+age.key
+keys.txt
+kubeconfig*
+*.kubeconfig
+!*.sops.yaml
+!*.enc.yaml
+
+# Ansible
+*.retry
+.vault_pass
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

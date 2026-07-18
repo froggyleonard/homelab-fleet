@@ -1,0 +1,19 @@
+---
+- name: Baseline hardening (all fleet nodes)
+  hosts: all
+  become: true
+  roles:
+    - common-hardening
+
+- name: RKE2 HA control plane (cluster-infra)
+  hosts: infra_cp
+  become: true
+  serial: 1 # first server bootstraps the cluster; others join
+  roles:
+    - rke2-server
+
+- name: k3s (cluster-apps)
+  hosts: apps_cp:apps_workers
+  become: true
+  roles:
+    - k3s

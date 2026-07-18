@@ -1,0 +1,13 @@
+# gitleaks config — extends the default ruleset.
+# SOPS-encrypted payloads are high-entropy by design; allowlist only the
+# structured ENC[...] envelope and sops metadata keys, never whole files.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "SOPS envelopes and age public keys (recipients are not secrets)"
+regexes = [
+  '''ENC\[AES256_GCM,data:[A-Za-z0-9+/=]+,iv:[A-Za-z0-9+/=]+,tag:[A-Za-z0-9+/=]+,type:[a-z]+\]''',
+  '''age1[a-z0-9]{58}''',
+]

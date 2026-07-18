@@ -1,0 +1,18 @@
+all:
+  vars:
+    ansible_user: ops
+  children:
+    infra_cp:
+      hosts:
+        infra-cp1: { ansible_host: xx.xx.100.11 }
+        infra-cp2: { ansible_host: xx.xx.100.12 }
+        infra-cp3: { ansible_host: xx.xx.100.13 }
+      vars:
+        rke2_api_vip: xx.xx.100.10
+    apps_cp:
+      hosts:
+        apps-cp1: { ansible_host: xx.xx.110.11 }
+    apps_workers:
+      hosts:
+        apps-w1: { ansible_host: xx.xx.110.12 }
+        apps-w2: { ansible_host: xx.xx.110.13 }

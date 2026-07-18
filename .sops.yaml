@@ -1,0 +1,10 @@
+# SOPS creation rules — every secret in this repo is age-encrypted.
+# AGE RECIPIENT: replace the placeholder below with the fleet age public key
+# (generated in Phase 2; private key lives on the workstation + one offline
+# backup — never in this repo, never on cluster nodes outside the KSOPS secret).
+creation_rules:
+  - path_regex: .*\.sops\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: "AGE_RECIPIENT_PLACEHOLDER"
+  - path_regex: .*\.enc\.ya?ml$
+    age: "AGE_RECIPIENT_PLACEHOLDER"

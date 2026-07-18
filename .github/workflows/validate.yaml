@@ -1,0 +1,70 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - name: fmt
+        run: terraform -chdir=terraform fmt -check -recursive
+      - name: validate module
+        run: |
+          terraform -chdir=terraform/modules/vm init -backend=false
+          terraform -chdir=terraform/modules/vm validate
+      - name: validate env
+        run: |
+          terraform -chdir=terraform/envs/pve init -backend=false
+          terraform -chdir=terraform/envs/pve validate
+
+  ansible-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ansible/ansible-lint@v25
+
+  kubeconform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C /usr/local/bin kubeconform
+          kubeconform -strict -summary \
+            -ignore-missing-schemas \
+            -skip Secret \
+            clusters/
+
+  sops-gate:
+    # Fail if any yaml under clusters/ contains an unencrypted Secret manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: no plaintext Secrets
+        run: |
+          bad=$(grep -rlE '^kind: *Secret' clusters/ --include='*.yaml' --include='*.yml' \
+            | xargs -r grep -LE 'ENC\[AES256_GCM' || true)
+          if [ -n "$bad" ]; then
+            echo "Plaintext Secret manifests found:"; echo "$bad"; exit 1
+          fi
