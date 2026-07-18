@@ -16,15 +16,17 @@ all:
         k3s_role: server
     apps_workers:
       hosts:
-        # scsi0 = sda (OS). Extra disks follow SCSI id order (see terraform env):
-        # w1: scsi1 = sdb (20G PG, rpool), scsi2 = sdc (200G Longhorn, Media)
-        # w2: scsi1 = sdb (200G Longhorn, Media)
+        # by-path only — kernel sdX names do NOT follow SCSI id order (observed
+        # on apps-w1: scsi2 enumerated as sdb). scsi-0:0:0:N = terraform scsiN
+        # on the virtio-scsi controller at PCI 00:05.0.
+        # w1: scsi1 = 20G PG (rpool), scsi2 = 200G Longhorn (Media)
+        # w2: scsi1 = 200G Longhorn (Media)
         apps-w1:
           ansible_host: xx.xx.110.12
-          k3s_pg_device: /dev/sdb
-          k3s_longhorn_device: /dev/sdc
+          k3s_pg_device: /dev/disk/by-path/pci-0000:00:05.0-scsi-0:0:0:1
+          k3s_longhorn_device: /dev/disk/by-path/pci-0000:00:05.0-scsi-0:0:0:2
         apps-w2:
           ansible_host: xx.xx.110.13
-          k3s_longhorn_device: /dev/sdb
+          k3s_longhorn_device: /dev/disk/by-path/pci-0000:00:05.0-scsi-0:0:0:1
       vars:
         k3s_role: agent
