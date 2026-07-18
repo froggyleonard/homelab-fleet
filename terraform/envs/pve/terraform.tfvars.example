@@ -1,0 +1,2 @@
+# Copy to terraform.tfvars (gitignored) and set the real first-two-octets prefix.
+net_prefix = "xx.xx"

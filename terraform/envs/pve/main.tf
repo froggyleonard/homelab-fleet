@@ -9,7 +9,7 @@ terraform {
 }
 
 # Auth via environment:
-#   PROXMOX_VE_ENDPOINT  = https://xx.xx.30.80:8006
+#   PROXMOX_VE_ENDPOINT  = https://<pve-host>:8006
 #   PROXMOX_VE_API_TOKEN = user@realm!tokenid=uuid
 provider "proxmox" {
   insecure = true # self-signed cert on the single homelab node
@@ -17,21 +17,21 @@ provider "proxmox" {
 
 locals {
   node     = "pve"
-  gw_infra = "xx.xx.100.1"
-  gw_apps  = "xx.xx.110.1"
+  gw_infra = "${var.net_prefix}.100.1"
+  gw_apps  = "${var.net_prefix}.110.1"
   ssh_keys = var.ssh_public_keys
   template = 9000
 
   fleet = {
-    infra-cp1 = { vmid = 201, cores = 2, mem = 6144, vlan = 100, ip = "xx.xx.100.11", gw = local.gw_infra, os_gb = 25, extra = [] }
-    infra-cp2 = { vmid = 202, cores = 2, mem = 6144, vlan = 100, ip = "xx.xx.100.12", gw = local.gw_infra, os_gb = 25, extra = [] }
-    infra-cp3 = { vmid = 203, cores = 2, mem = 6144, vlan = 100, ip = "xx.xx.100.13", gw = local.gw_infra, os_gb = 25, extra = [] }
-    apps-cp1  = { vmid = 211, cores = 2, mem = 4096, vlan = 110, ip = "xx.xx.110.11", gw = local.gw_apps, os_gb = 25, extra = [] }
-    apps-w1 = { vmid = 212, cores = 6, mem = 12288, vlan = 110, ip = "xx.xx.110.12", gw = local.gw_apps, os_gb = 30, extra = [
+    infra-cp1 = { vmid = 201, cores = 2, mem = 6144, vlan = 100, ip = "${var.net_prefix}.100.11", gw = local.gw_infra, os_gb = 25, extra = [] }
+    infra-cp2 = { vmid = 202, cores = 2, mem = 6144, vlan = 100, ip = "${var.net_prefix}.100.12", gw = local.gw_infra, os_gb = 25, extra = [] }
+    infra-cp3 = { vmid = 203, cores = 2, mem = 6144, vlan = 100, ip = "${var.net_prefix}.100.13", gw = local.gw_infra, os_gb = 25, extra = [] }
+    apps-cp1  = { vmid = 211, cores = 2, mem = 4096, vlan = 110, ip = "${var.net_prefix}.110.11", gw = local.gw_apps, os_gb = 25, extra = [] }
+    apps-w1 = { vmid = 212, cores = 6, mem = 12288, vlan = 110, ip = "${var.net_prefix}.110.12", gw = local.gw_apps, os_gb = 30, extra = [
       { datastore = "local-zfs", interface = "scsi1", size_gb = 20 }, # PostgreSQL (SSD)
       { datastore = "Media", interface = "scsi2", size_gb = 200 },    # Longhorn
     ] }
-    apps-w2 = { vmid = 213, cores = 6, mem = 16384, vlan = 110, ip = "xx.xx.110.13", gw = local.gw_apps, os_gb = 30, extra = [
+    apps-w2 = { vmid = 213, cores = 6, mem = 16384, vlan = 110, ip = "${var.net_prefix}.110.13", gw = local.gw_apps, os_gb = 30, extra = [
       { datastore = "Media", interface = "scsi1", size_gb = 200 }, # Longhorn
     ] }
   }

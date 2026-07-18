@@ -41,3 +41,6 @@ docs/adr/      Architecture Decision Records (MADR)
 - CI validates every push: gitleaks, `terraform fmt`/`validate`, ansible-lint, kubeconform
 - No Terraform state, kubeconfigs, or plaintext secrets are ever committed
 - History is clean by construction — this repo was born public
+- Network addressing is parameterized: the real prefix lives only in gitignored
+  local files (`terraform.tfvars`, `ansible/inventory/group_vars/all/network.yaml`);
+  `xx.xx` placeholders stand in throughout the repo

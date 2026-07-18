@@ -3,7 +3,8 @@ rke2_version: v1.35.6+rke2r1
 rke2_kube_vip_version: v1.2.1
 
 # Inventory group vars (rke2_api_vip) override these defaults.
-rke2_api_vip: xx.xx.100.10
+# net_prefix comes from inventory group_vars/all/network.yaml (gitignored).
+rke2_api_vip: "{{ net_prefix }}.100.10"
 rke2_cluster_cidr: 10.100.0.0/16
 rke2_service_cidr: 10.101.0.0/16
 

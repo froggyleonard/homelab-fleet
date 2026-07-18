@@ -22,6 +22,9 @@ kubeconfig*
 *.retry
 .vault_pass
 
+# Local network identity — real prefix never in git (committed *.example instead)
+ansible/inventory/group_vars/all/network.yaml
+
 # Editors / OS
 .idea/
 .vscode/
