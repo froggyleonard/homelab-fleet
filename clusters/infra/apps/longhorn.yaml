@@ -15,6 +15,12 @@ spec:
     targetRevision: 1.12.0
     helm:
       valuesObject:
+        # The chart's pre-upgrade Helm hook maps to an ArgoCD PreSync hook that
+        # also runs on first install, where it deadlocks waiting on a SA the
+        # main sync would create. Longhorn documents disabling it for GitOps.
+        preUpgradeChecker:
+          jobEnabled: false
+          upgradeVersionCheck: false
         persistence:
           defaultClassReplicaCount: 2
         defaultSettings:
