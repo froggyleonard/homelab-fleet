@@ -4,6 +4,9 @@ metadata:
   name: cilium
   namespace: kube-system
 spec:
+  # bootstrap: the install job must run host-network on the control plane,
+  # tolerating the not-ready taint — Cilium can't exist before itself.
+  bootstrap: true
   repo: https://helm.cilium.io
   chart: cilium
   version: {{ k3s_cilium_version }}
