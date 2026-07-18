@@ -7,7 +7,7 @@ variable "ssh_public_keys" {
 }
 
 variable "apps_enabled" {
-  description = "Create the cluster-apps VMs (211-213). Stays false until P5 — the apps cluster builds only after the Gate 2 teardown frees rpool space."
+  description = "Create the cluster-apps VMs (211-213). Flipped true at P5 (2026-07-18) after Gate 2 teardown freed the rpool space."
   type        = bool
-  default     = false
+  default     = true
 }
