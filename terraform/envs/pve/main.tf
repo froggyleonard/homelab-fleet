@@ -37,12 +37,14 @@ locals {
   }
 }
 
-# Ubuntu 24.04 (Noble) cloud image → template 9000
+# Ubuntu 24.04 (Noble) cloud image → template 9000.
+# content_type "import" (not "iso") so the VM disk can import_from it;
+# the .qcow2 name is required for PVE to accept it as an importable image.
 resource "proxmox_download_file" "noble" {
   node_name    = local.node
   datastore_id = "local"
-  content_type = "iso"
-  file_name    = "noble-server-cloudimg-amd64.img"
+  content_type = "import"
+  file_name    = "noble-server-cloudimg-amd64.qcow2"
   url          = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
 }
 
