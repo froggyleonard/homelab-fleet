@@ -3,17 +3,23 @@
   hosts: all
   become: true
   roles:
-    - common-hardening
+    - common_hardening
 
 - name: RKE2 HA control plane (cluster-infra)
   hosts: infra_cp
   become: true
   serial: 1 # first server bootstraps the cluster; others join
   roles:
-    - rke2-server
+    - rke2
 
-- name: k3s (cluster-apps)
-  hosts: apps_cp:apps_workers
+- name: Deploy k3s server (cluster-apps)
+  hosts: apps_cp
+  become: true
+  roles:
+    - k3s
+
+- name: Deploy k3s agents (cluster-apps)
+  hosts: apps_workers
   become: true
   roles:
     - k3s

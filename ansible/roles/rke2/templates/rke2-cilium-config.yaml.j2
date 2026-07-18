@@ -1,0 +1,27 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-cilium
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    kubeProxyReplacement: true
+    k8sServiceHost: {{ rke2_api_vip }}
+    k8sServicePort: 6443
+    ipam:
+      operator:
+        clusterPoolIPv4PodCIDRList:
+          - {{ rke2_cluster_cidr }}
+    l2announcements:
+      enabled: true
+    externalIPs:
+      enabled: true
+    k8sClientRateLimit:
+      qps: 50
+      burst: 100
+    hubble:
+      enabled: true
+      relay:
+        enabled: true
+      ui:
+        enabled: true

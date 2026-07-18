@@ -1,11 +1,100 @@
 ---
-# k3s role — apps-cp1 is the (tainted) server; w1/w2 join as agents.
-# TODO(P2): full implementation —
-#   - install k3s (pinned) with: --disable traefik,servicelb,metrics-server
-#     --flannel-backend=none --disable-kube-proxy --disable-network-policy (Cilium KPR)
-#   - server: taint node-role.kubernetes.io/control-plane:NoSchedule
-#   - agents: join via token; format+mount Longhorn disk at /var/lib/longhorn
-#   - apps-w1: format+mount 20G SSD disk for PostgreSQL local PV
-- name: Placeholder — implemented in P2
-  ansible.builtin.debug:
-    msg: "k3s role: implementation lands before P5 execution"
+# k3s — apps-cp1 is the (tainted) server; w1/w2 join as agents.
+# Nodes stay NotReady until Cilium is installed in P5 — expected; the role
+# only waits on the API port, never on node Ready.
+- name: Format Longhorn disk (ext4)
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ k3s_longhorn_device }}"
+  when: k3s_longhorn_device | length > 0
+
+- name: Mount Longhorn disk
+  ansible.posix.mount:
+    path: "{{ k3s_longhorn_mount }}"
+    src: "{{ k3s_longhorn_device }}"
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted
+  when: k3s_longhorn_device | length > 0
+
+- name: Format PostgreSQL disk (ext4)
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ k3s_pg_device }}"
+  when: k3s_pg_device | length > 0
+
+- name: Mount PostgreSQL disk
+  ansible.posix.mount:
+    path: "{{ k3s_pg_mount }}"
+    src: "{{ k3s_pg_device }}"
+    fstype: ext4
+    opts: defaults,noatime
+    state: mounted
+  when: k3s_pg_device | length > 0
+
+- name: Download k3s install script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /usr/local/bin/k3s-install.sh
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Create k3s config directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Read join token from server (agents)
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/node-token
+  delegate_to: "{{ groups['apps_cp'][0] }}"
+  register: k3s_token_slurp
+  when: k3s_role == 'agent'
+
+- name: Set join token fact (agents)
+  ansible.builtin.set_fact:
+    k3s_join_token: "{{ (k3s_token_slurp.content | b64decode) | trim }}"
+  when: k3s_role == 'agent'
+
+- name: Collect service facts
+  ansible.builtin.service_facts:
+
+- name: Record whether k3s was already running
+  ansible.builtin.set_fact:
+    k3s_was_running: "{{ ansible_facts.services[k3s_service_name ~ '.service'].state | default('') == 'running' }}"
+
+- name: Write k3s config
+  ansible.builtin.template:
+    src: "config-{{ k3s_role }}.yaml.j2"
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  register: k3s_config
+
+- name: Install k3s (pinned)
+  ansible.builtin.command: /usr/local/bin/k3s-install.sh
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+    INSTALL_K3S_EXEC: "{{ k3s_role }}"
+  args:
+    creates: "/etc/systemd/system/{{ k3s_service_name }}.service"
+
+- name: Restart k3s to pick up config changes
+  ansible.builtin.systemd:
+    name: "{{ k3s_service_name }}"
+    state: restarted
+  when:
+    - k3s_config is changed
+    - k3s_was_running
+
+- name: Wait for API server (server)
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 600
+  when: k3s_role == 'server'

@@ -91,7 +91,7 @@ resource "proxmox_virtual_environment_vm" "template" {
 
 module "fleet" {
   source   = "../../modules/vm"
-  for_each = local.fleet
+  for_each = { for name, vm in local.fleet : name => vm if var.apps_enabled || !startswith(name, "apps-") }
 
   name            = each.key
   vmid            = each.value.vmid

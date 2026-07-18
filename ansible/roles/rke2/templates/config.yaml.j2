@@ -1,0 +1,16 @@
+{% if not rke2_first_server %}
+server: https://{{ rke2_api_vip }}:9345
+token: {{ rke2_join_token }}
+{% endif %}
+tls-san:
+  - {{ rke2_api_vip }}
+{% for h in groups['infra_cp'] %}
+  - {{ h }}
+  - {{ hostvars[h].ansible_host }}
+{% endfor %}
+cni: cilium
+disable-kube-proxy: true
+cluster-cidr: {{ rke2_cluster_cidr }}
+service-cidr: {{ rke2_service_cidr }}
+profile: cis
+write-kubeconfig-mode: "0640"

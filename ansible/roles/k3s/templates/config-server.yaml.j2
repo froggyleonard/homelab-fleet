@@ -1,0 +1,15 @@
+disable:
+  - traefik
+  - servicelb
+  - metrics-server
+flannel-backend: none
+disable-kube-proxy: true
+disable-network-policy: true
+cluster-cidr: {{ k3s_cluster_cidr }}
+service-cidr: {{ k3s_service_cidr }}
+node-taint:
+  - "node-role.kubernetes.io/control-plane=:NoSchedule"
+tls-san:
+  - {{ k3s_server_host }}
+  - {{ groups['apps_cp'][0] }}
+write-kubeconfig-mode: "0640"

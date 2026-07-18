@@ -1,0 +1,141 @@
+---
+# RKE2 HA server — site.yaml runs this play serial:1, so the bootstrap host
+# is fully Ready before the next server joins via the kube-vip VIP.
+- name: Create etcd group (CIS profile requirement)
+  ansible.builtin.group:
+    name: etcd
+    system: true
+
+- name: Create etcd user (CIS profile requirement)
+  ansible.builtin.user:
+    name: etcd
+    group: etcd
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Download RKE2 install script
+  ansible.builtin.get_url:
+    url: https://get.rke2.io
+    dest: /usr/local/bin/rke2-install.sh
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Install RKE2 server (pinned)
+  ansible.builtin.command: /usr/local/bin/rke2-install.sh
+  environment:
+    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_TYPE: server
+  args:
+    creates: /var/lib/rancher/rke2/bin/rke2
+
+- name: Apply RKE2 CIS sysctl profile
+  ansible.builtin.copy:
+    src: /usr/local/share/rke2/rke2-cis-sysctl.conf
+    remote_src: true
+    dest: /etc/sysctl.d/60-rke2-cis.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload sysctl
+
+- name: Apply pending sysctl changes before starting RKE2
+  ansible.builtin.meta: flush_handlers
+
+- name: Collect service facts
+  ansible.builtin.service_facts:
+
+- name: Record whether rke2-server was already running
+  ansible.builtin.set_fact:
+    rke2_was_running: "{{ ansible_facts.services['rke2-server.service'].state | default('') == 'running' }}"
+
+- name: Read join token from bootstrap server
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/rke2/server/node-token
+  delegate_to: "{{ rke2_bootstrap_host }}"
+  register: rke2_token_slurp
+  when: not rke2_first_server
+
+- name: Set join token fact
+  ansible.builtin.set_fact:
+    rke2_join_token: "{{ (rke2_token_slurp.content | b64decode) | trim }}"
+  when: not rke2_first_server
+
+- name: Create RKE2 config directory
+  ansible.builtin.file:
+    path: /etc/rancher/rke2
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Write RKE2 config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  register: rke2_config
+
+- name: Create static pod manifest directory
+  ansible.builtin.file:
+    path: /var/lib/rancher/rke2/agent/pod-manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy kube-vip static pod
+  ansible.builtin.template:
+    src: kube-vip.yaml.j2
+    dest: /var/lib/rancher/rke2/agent/pod-manifests/kube-vip.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Create server manifests directory (bootstrap server)
+  ansible.builtin.file:
+    path: /var/lib/rancher/rke2/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: rke2_first_server
+
+- name: Deploy Cilium HelmChartConfig (bootstrap server)
+  ansible.builtin.template:
+    src: rke2-cilium-config.yaml.j2
+    dest: /var/lib/rancher/rke2/server/manifests/rke2-cilium-config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  when: rke2_first_server
+
+- name: Enable and start rke2-server
+  ansible.builtin.systemd:
+    name: rke2-server
+    enabled: true
+    state: started
+
+- name: Restart rke2-server to pick up config changes
+  ansible.builtin.systemd:
+    name: rke2-server
+    state: restarted
+  when:
+    - rke2_config is changed
+    - rke2_was_running
+
+- name: Wait for local API server
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 900
+
+- name: Wait for node Ready
+  ansible.builtin.command: >-
+    /var/lib/rancher/rke2/bin/kubectl
+    --kubeconfig /etc/rancher/rke2/rke2.yaml
+    wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=600s
+  changed_when: false

@@ -12,7 +12,19 @@ all:
     apps_cp:
       hosts:
         apps-cp1: { ansible_host: xx.xx.110.11 }
+      vars:
+        k3s_role: server
     apps_workers:
       hosts:
-        apps-w1: { ansible_host: xx.xx.110.12 }
-        apps-w2: { ansible_host: xx.xx.110.13 }
+        # scsi0 = sda (OS). Extra disks follow SCSI id order (see terraform env):
+        # w1: scsi1 = sdb (20G PG, rpool), scsi2 = sdc (200G Longhorn, Media)
+        # w2: scsi1 = sdb (200G Longhorn, Media)
+        apps-w1:
+          ansible_host: xx.xx.110.12
+          k3s_pg_device: /dev/sdb
+          k3s_longhorn_device: /dev/sdc
+        apps-w2:
+          ansible_host: xx.xx.110.13
+          k3s_longhorn_device: /dev/sdb
+      vars:
+        k3s_role: agent

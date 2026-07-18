@@ -1,0 +1,16 @@
+---
+k3s_version: v1.36.2+k3s1
+
+# server | agent — set per group in the inventory.
+k3s_role: agent
+k3s_server_host: "{{ hostvars[groups['apps_cp'][0]].ansible_host }}"
+k3s_service_name: "{{ 'k3s' if k3s_role == 'server' else 'k3s-agent' }}"
+
+k3s_cluster_cidr: 10.110.0.0/16
+k3s_service_cidr: 10.111.0.0/16
+
+# Data disks — set per host in the inventory; empty = no disk to prepare.
+k3s_longhorn_device: ""
+k3s_longhorn_mount: /var/lib/longhorn
+k3s_pg_device: ""
+k3s_pg_mount: /var/lib/postgresql

@@ -42,6 +42,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ansible/ansible-lint@v25
+        with:
+          working_directory: ansible
+          requirements_file: requirements.yml
 
   kubeconform:
     runs-on: ubuntu-latest
