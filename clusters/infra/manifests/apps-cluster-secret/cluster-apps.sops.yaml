@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: cluster-apps
+    namespace: argocd
+    labels:
+        argocd.argoproj.io/secret-type: cluster
+        app.kubernetes.io/name: cluster-apps
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+type: Opaque
+stringData:
+    name: ENC[AES256_GCM,data:gLCR0g==,iv:DydKROZ/FA3AiP0bcYgA1zVjZ83D3WNQQa3gJNO4Dck=,tag:3lmImAoTs0YVDz7EGh4LCA==,type:str]
+    server: ENC[AES256_GCM,data:KzBrRb+sXwA8UKfmHTo+iMSv5C7kI5GlVw==,iv:jb34yoxKUqUXGkYei5mhQJIZOOvN8sLKFaEFsfyCcRA=,tag:wLSlBOdSG55Npz6UnkkTpg==,type:str]
+    config: ENC[AES256_GCM,data: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,iv:EndTH46vON+8BXn1Q16edbmhbj1uGC7iImArvGAp0no=,tag:Wu9eu7cvYPr7CoNtp8T1Gw==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBITkMvSUVIS0o5UDVSWTR2
+            amYxdEZHTGRyRGJpa0V6Qm5PSFVZTmk0RlhFCjM2NUxUT2RVNkhMNE5tK0xkcm1W
+            TUt0MERwSzhmWjJOdkY1NXZ6ZUQ5RHMKLS0tIHFDaFZEdGtHV2lnMjNnTjlUQWQ5
+            MVh4dm5TRzdYMjAyWkgyaWZmRlR2L0kK+DKAoPDxuy0a54lQNrbDO64ozhGB2rJQ
+            E7WxPvZiciWGHCzbmsRw1AYvNc1dTYCsbA/vi4CV3XHr41khMrJEnw==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1w5yapjkwdf2frzuevgu4548ntr77dma9eu3kqmypfzguhf9ul3ss8rsghc
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-07-18T14:59:53Z"
+    mac: ENC[AES256_GCM,data:imyFHuR/vGi0JZ31sZJ1JGBNX1zMkx1H/RRpjBRx6oqtwtKsWZBKABOQY354U7zaxefkSGYd0JEwiuIH9io7uvVRbOsL0LTp5tRzmhyP+ZVyvnRUF3O6JgqW+zi2GKkF9rtlCi29zZupSkwTFg6OCI+CjTs+tgIzC9WHF4tLHJM=,iv:BksNtXNWaP/Ygrqe6CoRDLYxZYoIBuyWRL9sTrT6bSs=,tag:cegTZt3k/YJIvKiX0NROuA==,type:str]
+    version: 3.13.2
