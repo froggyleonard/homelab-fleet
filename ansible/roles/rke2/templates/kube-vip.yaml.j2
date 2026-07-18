@@ -5,6 +5,12 @@ metadata:
   namespace: kube-system
 spec:
   hostNetwork: true
+  # kube-vip's control-plane mode dials https://kubernetes:6443 (hardcoded
+  # host rewrite in pkg/manager); this alias points it at the local apiserver.
+  hostAliases:
+    - ip: 127.0.0.1
+      hostnames:
+        - kubernetes
   containers:
     - name: kube-vip
       image: ghcr.io/kube-vip/kube-vip:{{ rke2_kube_vip_version }}
@@ -42,7 +48,9 @@ spec:
       volumeMounts:
         - mountPath: /etc/kubernetes/admin.conf
           name: kubeconfig
+          readOnly: true
   volumes:
     - name: kubeconfig
       hostPath:
         path: /etc/rancher/rke2/rke2.yaml
+        type: File

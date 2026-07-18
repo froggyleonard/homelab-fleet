@@ -59,6 +59,12 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   initialization {
     datastore_id = var.os_datastore
+    # Without this, cloud-init inherits the PVE host's MGMT resolver, which the
+    # cluster-VLAN firewall policy does not intend to allow (DNS goes to the
+    # VLAN gateway per the 005 matrix).
+    dns {
+      servers = [var.gateway]
+    }
     ip_config {
       ipv4 {
         address = "${var.ip}/24"
