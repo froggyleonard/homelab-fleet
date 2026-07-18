@@ -76,6 +76,24 @@
     mode: "0600"
   register: k3s_config
 
+- name: Create server manifests directory (server)
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: k3s_role == 'server'
+
+- name: Deploy Cilium HelmChart (server)
+  ansible.builtin.template:
+    src: cilium-helmchart.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/cilium.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  when: k3s_role == 'server'
+
 - name: Install k3s (pinned)
   ansible.builtin.command: /usr/local/bin/k3s-install.sh
   environment:

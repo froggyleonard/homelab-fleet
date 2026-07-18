@@ -1,0 +1,29 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: cilium
+  namespace: kube-system
+spec:
+  repo: https://helm.cilium.io
+  chart: cilium
+  version: {{ k3s_cilium_version }}
+  targetNamespace: kube-system
+  valuesContent: |-
+    kubeProxyReplacement: true
+    k8sServiceHost: {{ k3s_server_host }}
+    k8sServicePort: 6443
+    ipam:
+      operator:
+        clusterPoolIPv4PodCIDRList:
+          - {{ k3s_cluster_cidr }}
+    l2announcements:
+      enabled: true
+    externalIPs:
+      enabled: true
+    k8sClientRateLimit:
+      qps: 50
+      burst: 100
+    hubble:
+      enabled: true
+      relay:
+        enabled: true
