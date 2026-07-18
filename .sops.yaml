@@ -5,6 +5,6 @@
 creation_rules:
   - path_regex: .*\.sops\.ya?ml$
     encrypted_regex: ^(data|stringData)$
-    age: "AGE_RECIPIENT_PLACEHOLDER"
+    age: "age1w5yapjkwdf2frzuevgu4548ntr77dma9eu3kqmypfzguhf9ul3ss8rsghc"
   - path_regex: .*\.enc\.ya?ml$
-    age: "AGE_RECIPIENT_PLACEHOLDER"
+    age: "age1w5yapjkwdf2frzuevgu4548ntr77dma9eu3kqmypfzguhf9ul3ss8rsghc"
