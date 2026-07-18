@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-info
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cluster-info
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/infra/manifests/cluster-info
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: fleet-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

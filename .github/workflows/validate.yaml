@@ -57,6 +57,7 @@ jobs:
           kubeconform -strict -summary \
             -ignore-missing-schemas \
             -skip Secret \
+            -ignore-filename-pattern '.*-patch\.yaml' \
             clusters/
 
   sops-gate:

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-info
+  namespace: fleet-system
+  labels:
+    app.kubernetes.io/name: cluster-info
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+data:
+  cluster: infra
+  distribution: rke2
+  role: "hub: argocd, monitoring"
+  bootstrap-task: "005-cluster-rebuild"
