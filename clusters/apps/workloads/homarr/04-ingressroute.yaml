@@ -1,0 +1,18 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: homarr
+  namespace: homarr
+  labels:
+    app.kubernetes.io/name: homarr
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`home.apps.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: homarr
+          port: 80
