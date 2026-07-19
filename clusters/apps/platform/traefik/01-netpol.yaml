@@ -1,0 +1,57 @@
+# Baseline: default-deny both directions, then open exactly what the ingress
+# proxy needs. Egress stays open — Traefik must reach every workload namespace,
+# and its backend set changes with every service PR; per-backend holes would
+# rot. North-south exposure is controlled at OPNsense (household VLANs reach
+# only the LB VIP on :443).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: traefik-ingress
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  policyTypes: [Ingress]
+  ingress:
+    # Entrypoints (pod ports behind the LB VIP). No `from` — client sources
+    # arrive as VLAN IPs or node SNAT depending on path; both must pass.
+    - ports:
+        - port: 8000 # web (redirects to websecure)
+          protocol: TCP
+        - port: 8443 # websecure
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: traefik-egress
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  policyTypes: [Egress]
+  egress:
+    - {} # all destinations — see header comment

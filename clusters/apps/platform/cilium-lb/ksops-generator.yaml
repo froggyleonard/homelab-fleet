@@ -1,0 +1,11 @@
+apiVersion: viaduct.ai/v1
+kind: ksops
+metadata:
+  name: apps-cilium-lb-generator
+  annotations:
+    config.kubernetes.io/function: |
+      exec:
+        path: ksops
+files:
+  - ingress-pool.sops.yaml
+  - default-pool.sops.yaml

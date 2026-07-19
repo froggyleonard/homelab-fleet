@@ -1,0 +1,24 @@
+# Companion to the cert-manager chart app: namespace (labeled), NetworkPolicies,
+# and later the Cloudflare DNS-01 ClusterIssuer + API-token secret (SOPS).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-config
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cert-manager-config
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/platform/cert-manager
+  destination:
+    name: apps
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
