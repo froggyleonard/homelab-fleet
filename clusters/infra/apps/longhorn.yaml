@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: fleet
     app.kubernetes.io/managed-by: argocd
 spec:
-  project: default
+  project: apps
   source:
     repoURL: https://charts.longhorn.io
     chart: longhorn

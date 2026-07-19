@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: argocd
+  annotations:
+    # Positive wave: neuter default only AFTER the project flips in this same
+    # sync have moved every Application off it.
+    argocd.argoproj.io/sync-wave: "10"
+  labels:
+    app.kubernetes.io/name: default
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  description: >-
+    Neutered (Amendment A1) — permits nothing. Every Application must set an
+    explicit project (infra or apps); anything that forgets fails loudly here
+    instead of inheriting allow-all.
+  sourceRepos: []
+  destinations: []
+  clusterResourceWhitelist: []
