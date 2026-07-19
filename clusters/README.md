@@ -3,12 +3,17 @@
 ArgoCD-reconciled manifests. The hub on cluster-infra watches this directory.
 
 - `infra/bootstrap/` — the only thing applied by hand, once. Fresh-cluster order
-  matters (root requires AppProject `infra`, which lives in the synced tree):
-  1. create the KSOPS age-key secret in the `argocd` namespace (cluster key)
-  2. `kubectl apply -k clusters/infra/bootstrap/argocd/`
-  3. `kubectl apply -f clusters/infra/apps/projects/` — AppProjects, including
+  matters: the namespace must exist before the secret, the AppProject CRD must
+  be established before the projects, and the projects before root:
+  1. `kubectl apply -f clusters/infra/bootstrap/argocd/namespace.yaml`
+  2. `kubectl -n argocd create secret generic sops-age
+     --from-file=keys.txt=<cluster age private key>`
+  3. `kubectl apply -k clusters/infra/bootstrap/argocd/`
+  4. `kubectl wait --for=condition=Established
+     crd/appprojects.argoproj.io --timeout=120s`
+  5. `kubectl apply -f clusters/infra/apps/projects/` — AppProjects, including
      root's own; skipping this wedges root on a nonexistent project
-  4. `kubectl apply -f clusters/infra/bootstrap/root-app.yaml`
+  6. `kubectl apply -f clusters/infra/bootstrap/root-app.yaml`
   Everything after that is GitOps.
 - `infra/platform/` — cert-manager, monitoring, Cilium config, kube-vip
 - `apps/bootstrap/` — spoke registration (cluster secret, SOPS-encrypted)

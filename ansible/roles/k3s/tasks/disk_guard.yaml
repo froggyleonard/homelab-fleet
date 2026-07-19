@@ -1,43 +1,75 @@
 ---
-# Pre-format safety assertions (Amendment A1; device resolution fixed in A1-E1):
-# refuse to mkfs unless the inventory-supplied device demonstrably is the disk
-# we expect — present, not the disk backing /, not mounted anywhere else, and
-# sized within the declared bounds. The inventory uses stable
-# /dev/disk/by-path/ symlinks while ansible_facts.devices is keyed by kernel
-# names (sda, …), so resolve the symlink first and assert against the real
-# device. Caller passes k3s_guard_{label,device,mount,min_gb,max_gb}.
+# Pre-format safety assertions (A1; resolution A1-E1; tree inspection A1-E2):
+# refuse to mkfs unless the inventory-supplied device demonstrably is the bare
+# whole disk we expect. Exact string checks miss mounted child partitions and
+# device-mapper/LVM/RAID layering, so assert on the lsblk tree of the RESOLVED
+# device instead: type=disk, zero children (no partitions or holders of any
+# kind), fstype absent or ext4 (ours), mounted nowhere except its own k3s
+# mount, not an ancestor of the device backing /, and sized within the
+# declared bounds. Caller passes k3s_guard_{label,device,mount,min_gb,max_gb}.
 - name: Resolve device path — {{ k3s_guard_label }}
   ansible.builtin.stat:
     path: "{{ k3s_guard_device }}"
     follow: false
   register: k3s_guard_stat
 
-- name: Assert data disk is safe to format — {{ k3s_guard_label }}
-  vars:
-    k3s_guard_real_device: "{{ k3s_guard_stat.stat.lnk_source | default(k3s_guard_device) }}"
-    k3s_guard_dev_name: "{{ k3s_guard_real_device | basename }}"
-    k3s_guard_dev_info: "{{ ansible_facts.devices[k3s_guard_dev_name] | default({}) }}"
-    k3s_guard_dev_bytes: "{{ (k3s_guard_dev_info.sectors | default(0) | int) * (k3s_guard_dev_info.sectorsize | default(512) | int) }}"
-    k3s_guard_root_device: "{{ (ansible_facts.mounts | selectattr('mount', 'equalto', '/') | first).device }}"
-    k3s_guard_foreign_mounts: >-
-      {{ ansible_facts.mounts
-         | selectattr('device', 'in', [k3s_guard_device, k3s_guard_real_device])
-         | rejectattr('mount', 'equalto', k3s_guard_mount)
-         | list }}
+- name: Assert device exists — {{ k3s_guard_label }}
   ansible.builtin.assert:
     that:
       - k3s_guard_stat.stat.exists
-      - k3s_guard_dev_info | length > 0
-      - not k3s_guard_root_device.startswith(k3s_guard_real_device)
+    fail_msg: "Refusing to format: {{ k3s_guard_device }} does not exist on this host"
+
+- name: Set resolved device fact — {{ k3s_guard_label }}
+  ansible.builtin.set_fact:
+    k3s_guard_real_device: "{{ k3s_guard_stat.stat.lnk_source | default(k3s_guard_device) }}"
+
+- name: Inspect block-device tree — {{ k3s_guard_label }}
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --paths
+      - --output
+      - PATH,TYPE,FSTYPE,MOUNTPOINTS
+      - "{{ k3s_guard_real_device }}"
+  changed_when: false
+  register: k3s_guard_lsblk
+
+- name: Read root-device ancestry
+  # $(…) needs a shell; lists the device backing / plus every ancestor
+  # (partition, dm/LVM, md, disk), so root-on-LVM still names the real disk.
+  ansible.builtin.shell: >-
+    lsblk --inverse --paths --noheadings --output PATH
+    "$(findmnt --noheadings --output SOURCE /)"
+  changed_when: false
+  register: k3s_guard_root_chain
+
+- name: Assert data disk is safe to format — {{ k3s_guard_label }}
+  vars:
+    k3s_guard_tree: "{{ (k3s_guard_lsblk.stdout | from_json).blockdevices | first }}"
+    k3s_guard_children: "{{ k3s_guard_tree.children | default([]) }}"
+    k3s_guard_mounts: "{{ k3s_guard_tree.mountpoints | reject('none') | list }}"
+    k3s_guard_foreign_mounts: "{{ k3s_guard_mounts | reject('equalto', k3s_guard_mount) | list }}"
+    k3s_guard_root_ancestors: "{{ k3s_guard_root_chain.stdout_lines | map('trim') | list }}"
+    k3s_guard_dev_name: "{{ k3s_guard_real_device | basename }}"
+    k3s_guard_dev_info: "{{ ansible_facts.devices[k3s_guard_dev_name] | default({}) }}"
+    k3s_guard_dev_bytes: "{{ (k3s_guard_dev_info.sectors | default(0) | int) * (k3s_guard_dev_info.sectorsize | default(512) | int) }}"
+  ansible.builtin.assert:
+    that:
+      - k3s_guard_tree.type == 'disk'
+      - k3s_guard_children | length == 0
+      - k3s_guard_tree.fstype in [none, 'ext4']
+      - k3s_guard_foreign_mounts | length == 0
+      - k3s_guard_real_device not in k3s_guard_root_ancestors
       - k3s_guard_dev_bytes | int >= (k3s_guard_min_gb | int) * 1073741824
       - k3s_guard_dev_bytes | int <= (k3s_guard_max_gb | int) * 1073741824
-      - k3s_guard_foreign_mounts | length == 0
     fail_msg: >-
       Refusing to format {{ k3s_guard_device }} ({{ k3s_guard_label }}):
-      exists={{ k3s_guard_stat.stat.exists }},
       resolved={{ k3s_guard_real_device }},
-      known_device={{ k3s_guard_dev_info | length > 0 }},
+      type={{ k3s_guard_tree.type }},
+      children={{ k3s_guard_children | map(attribute='path') | list }},
+      fstype={{ k3s_guard_tree.fstype }},
+      foreign_mounts={{ k3s_guard_foreign_mounts }},
+      root_ancestors={{ k3s_guard_root_ancestors }},
       bytes={{ k3s_guard_dev_bytes }},
-      expected_gib={{ k3s_guard_min_gb }}..{{ k3s_guard_max_gb }},
-      root_device={{ k3s_guard_root_device }},
-      foreign_mounts={{ k3s_guard_foreign_mounts | map(attribute='mount') | list }}
+      expected_gib={{ k3s_guard_min_gb }}..{{ k3s_guard_max_gb }}
