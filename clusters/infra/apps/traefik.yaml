@@ -27,14 +27,13 @@ spec:
             lb-pool: ingress
         ports:
           web:
-            redirections:
-              entryPoint:
-                to: websecure
-                scheme: https
-                permanent: true
-          websecure:
-            tls:
-              enabled: true
+            http:
+              redirections:
+                entryPoint:
+                  to: websecure
+                  scheme: https
+                  permanent: true
+          # websecure TLS is enabled by chart default
         providers:
           kubernetesCRD:
             enabled: true
