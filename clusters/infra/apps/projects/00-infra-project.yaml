@@ -14,11 +14,19 @@ spec:
   description: Hub-cluster platform — fleet repo only, hub destination only
   sourceRepos:
     - https://github.com/froggyleonard/homelab-fleet
+  # P6 tightening: hub apps live in argocd (Applications/AppProjects/cluster
+  # secret), fleet-system (cluster-info), and kube-system (Cilium LB pools).
   destinations:
     - server: https://kubernetes.default.svc
-      namespace: "*"
-  # Platform components create CRDs and namespaces; namespace-level
-  # tightening is deferred to P6 when the final namespace list lands.
+      namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: fleet-system
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
   clusterResourceWhitelist:
-    - group: "*"
-      kind: "*"
+    - group: ""
+      kind: Namespace
+    - group: cilium.io
+      kind: CiliumLoadBalancerIPPool
+    - group: cilium.io
+      kind: CiliumL2AnnouncementPolicy

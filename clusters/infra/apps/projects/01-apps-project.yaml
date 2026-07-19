@@ -18,11 +18,53 @@ spec:
     - https://charts.jetstack.io
     - https://charts.goauthentik.io
   # The apps project can never target the hub: spoke destination only.
+  # P6 tightening: enumerated workload namespaces.
   destinations:
     - name: apps
-      namespace: "*"
-  # Longhorn ships CRDs and cluster-scoped RBAC; namespace-level tightening
-  # is deferred to P6 when the final workload namespace list lands.
+      namespace: longhorn-system
+    - name: apps
+      namespace: kube-system
+    - name: apps
+      namespace: traefik
+    - name: apps
+      namespace: cert-manager
+    - name: apps
+      namespace: postgres
+    - name: apps
+      namespace: authentik
+    - name: apps
+      namespace: n8n
+    - name: apps
+      namespace: sure
+    - name: apps
+      namespace: homarr
+    - name: apps
+      namespace: ollama
+    - name: apps
+      namespace: cloudflared
+  # Cluster-scoped kinds the charts/configs actually ship: CRDs + RBAC +
+  # webhooks (longhorn/traefik/cert-manager), StorageClasses + the static PG
+  # PV, namespaces themselves, Cilium LB pools, longhorn's PriorityClass.
   clusterResourceWhitelist:
-    - group: "*"
-      kind: "*"
+    - group: ""
+      kind: Namespace
+    - group: ""
+      kind: PersistentVolume
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: storage.k8s.io
+      kind: StorageClass
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+    - group: scheduling.k8s.io
+      kind: PriorityClass
+    - group: cilium.io
+      kind: CiliumLoadBalancerIPPool
+    - group: cilium.io
+      kind: CiliumL2AnnouncementPolicy
