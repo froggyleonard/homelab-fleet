@@ -1,0 +1,33 @@
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+    name: apps-default
+    labels:
+        app.kubernetes.io/name: cilium-lb
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+spec:
+    serviceSelector:
+        matchExpressions:
+            - key: lb-pool
+              operator: NotIn
+              values:
+                - ingress
+    blocks:
+        - start: ENC[AES256_GCM,data:rDOYzhLN+TK2gW93OA==,iv:rJg/X0YEV2y7RHIG8e+dRiLypHQ1BVdogsjl1FcePbo=,tag:xpi7Wx5lS/XmOnJin5TcUw==,type:str]
+          stop: ENC[AES256_GCM,data:9DodSM6smjVy1Uv+nA==,iv:zgZILM+sYLIAcu6P0qUlGMuYi6MyWG0hCUUcHlB34Ic=,tag:1agv00IexbF7NAwa/X8b4w==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBjcFVZWUN2UWYrOTFDL045
+            VW04UTZvK3RmS3VEeXBld1FlV2FobER0a0NNCkhaclhBTk9MbGtKTks0RXU4RE5J
+            dzNNRWJGQ2RRd0h1U3d0RjJBQytIUUkKLS0tIElGLzNRclpXaGZpYXhuZS9DNUE4
+            NVVQM2VEVEltSkViL0t4bWFzbTNWRGMKHCn8SgDMXizfaSQzVkEom+zrYoU6leyu
+            UBL/Toegt2s4ZyAHLaMwccFeglumWRzxhp34ra+F5A/RLXxeMe46Tw==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1w5yapjkwdf2frzuevgu4548ntr77dma9eu3kqmypfzguhf9ul3ss8rsghc
+    encrypted_regex: ^(start|stop|cidr)$
+    lastmodified: "2026-07-19T20:03:56Z"
+    mac: ENC[AES256_GCM,data:pCU/+qT9Bq4Vm30GHbPKEJ10FcKYr/gCTsJsrUHzmhq0l0GGYZVWteJgXhXP5xYtJ43vi7+dKBT7BX9XmtPvs9YtXLyTvqlkjkB8FBYvD4MlrzAjJBFd70VGbiO9kgmXwdw0UNTXi9AD2zejLIBnGkZiW3PI/tAs259h1mvcTgY=,iv:QeXej60YvLrh01bIFBb+6sh9gh32l/TmkaRCWnJRhdY=,tag:pc2NyPv67XcX63nk9s/nww==,type:str]
+    version: 3.13.2

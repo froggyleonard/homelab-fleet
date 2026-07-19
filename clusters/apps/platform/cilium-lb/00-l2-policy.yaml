@@ -1,0 +1,15 @@
+# Announce LoadBalancer IPs via ARP on the VLAN-110 interface. All nodes are
+# candidates; Cilium elects one lease-holder per service.
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: apps-l2
+  labels:
+    app.kubernetes.io/name: cilium-lb
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  loadBalancerIPs: true
+  interfaces:
+    - ^eth[0-9]+
+    - ^ens[0-9]+

@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: 41.0.2 # traefik v3.7.6
+    helm:
+      valuesObject:
+        deployment:
+          replicas: 1
+        service:
+          type: LoadBalancer
+          labels:
+            # Selected by the single-IP `apps-ingress` LB-IPAM pool (SOPS file in
+            # clusters/apps/platform/cilium-lb) — pins the ingress VIP (.200) that
+            # the Unbound wildcard *.apps.froggyleonard.com resolves to, without
+            # committing the address here.
+            lb-pool: ingress
+        ports:
+          web:
+            redirections:
+              entryPoint:
+                to: websecure
+                scheme: https
+                permanent: true
+          websecure:
+            tls:
+              enabled: true
+        providers:
+          kubernetesCRD:
+            enabled: true
+          # IngressRoute CRDs only — repo convention; bare Ingress unsupported.
+          kubernetesIngress:
+            enabled: false
+        ingressClass:
+          enabled: false
+        ingressRoute:
+          dashboard:
+            enabled: false
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+  destination:
+    name: apps
+    namespace: traefik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

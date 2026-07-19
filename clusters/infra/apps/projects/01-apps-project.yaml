@@ -14,6 +14,8 @@ spec:
   sourceRepos:
     - https://github.com/froggyleonard/homelab-fleet
     - https://charts.longhorn.io
+    - https://traefik.github.io/charts
+    - https://charts.jetstack.io
   # The apps project can never target the hub: spoke destination only.
   destinations:
     - name: apps
