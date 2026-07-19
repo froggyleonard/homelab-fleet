@@ -1,10 +1,13 @@
 # SOPS creation rules — every secret in this repo is age-encrypted.
-# AGE RECIPIENT: replace the placeholder below with the fleet age public key
-# (generated in Phase 2; private key lives on the workstation + one offline
-# backup — never in this repo, never on cluster nodes outside the KSOPS secret).
+# Two recipients since Amendment A1 (2026-07-19):
+#   cluster — clusters/**: decryptable by the ArgoCD repo-server (KSOPS secret);
+#             private key also on the workstation + offline backup.
+#   infra   — secrets/**: workstation + offline backup ONLY. The cluster must
+#             never be able to decrypt infrastructure credentials (Proxmox API
+#             token etc.) — a repo-server compromise stays a cluster problem.
 creation_rules:
-  - path_regex: .*\.sops\.ya?ml$
+  - path_regex: ^clusters/.*\.sops\.ya?ml$
     encrypted_regex: ^(data|stringData)$
-    age: "age1w5yapjkwdf2frzuevgu4548ntr77dma9eu3kqmypfzguhf9ul3ss8rsghc"
-  - path_regex: .*\.enc\.ya?ml$
-    age: "age1w5yapjkwdf2frzuevgu4548ntr77dma9eu3kqmypfzguhf9ul3ss8rsghc"
+    age: "age1w5yapjkwdf2frzuevgu4548ntr77dma9eu3kqmypfzguhf9ul3ss8rsghc" # cluster
+  - path_regex: ^secrets/.*\.enc\.ya?ml$
+    age: "age1juat9ds2g6ttqql4hsu4448697w9e5mquqp5td4hcf0tfudtguss36kmlq" # infra

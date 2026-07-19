@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: apps
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+  labels:
+    app.kubernetes.io/name: apps
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  description: Spoke workloads — fleet repo + pinned chart repos, apps cluster only
+  sourceRepos:
+    - https://github.com/froggyleonard/homelab-fleet
+    - https://charts.longhorn.io
+  # The apps project can never target the hub: spoke destination only.
+  destinations:
+    - name: apps
+      namespace: "*"
+  # Longhorn ships CRDs and cluster-scoped RBAC; namespace-level tightening
+  # is deferred to P6 when the final workload namespace list lands.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
