@@ -55,11 +55,13 @@
     src: /var/lib/rancher/rke2/server/node-token
   delegate_to: "{{ rke2_bootstrap_host }}"
   register: rke2_token_slurp
+  no_log: true
   when: not rke2_first_server
 
 - name: Set join token fact
   ansible.builtin.set_fact:
     rke2_join_token: "{{ (rke2_token_slurp.content | b64decode) | trim }}"
+  no_log: true
   when: not rke2_first_server
 
 - name: Create RKE2 config directory

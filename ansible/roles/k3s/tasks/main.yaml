@@ -2,11 +2,21 @@
 # k3s — apps-cp1 is the (tainted) server; w1/w2 join as agents.
 # Nodes stay NotReady until Cilium is installed in P5 — expected; the role
 # only waits on the API port, never on node Ready.
+- name: Guard Longhorn disk before formatting
+  ansible.builtin.include_tasks: disk_guard.yaml
+  vars:
+    k3s_guard_label: Longhorn
+    k3s_guard_device: "{{ k3s_longhorn_device }}"
+    k3s_guard_mount: "{{ k3s_longhorn_mount }}"
+    k3s_guard_min_gb: "{{ k3s_longhorn_size_min_gb }}"
+    k3s_guard_max_gb: "{{ k3s_longhorn_size_max_gb }}"
+  when: k3s_longhorn_device | length > 0 and k3s_allow_disk_format | bool
+
 - name: Format Longhorn disk (ext4)
   community.general.filesystem:
     fstype: ext4
     dev: "{{ k3s_longhorn_device }}"
-  when: k3s_longhorn_device | length > 0
+  when: k3s_longhorn_device | length > 0 and k3s_allow_disk_format | bool
 
 - name: Mount Longhorn disk
   ansible.posix.mount:
@@ -17,11 +27,21 @@
     state: mounted
   when: k3s_longhorn_device | length > 0
 
+- name: Guard PostgreSQL disk before formatting
+  ansible.builtin.include_tasks: disk_guard.yaml
+  vars:
+    k3s_guard_label: PostgreSQL
+    k3s_guard_device: "{{ k3s_pg_device }}"
+    k3s_guard_mount: "{{ k3s_pg_mount }}"
+    k3s_guard_min_gb: "{{ k3s_pg_size_min_gb }}"
+    k3s_guard_max_gb: "{{ k3s_pg_size_max_gb }}"
+  when: k3s_pg_device | length > 0 and k3s_allow_disk_format | bool
+
 - name: Format PostgreSQL disk (ext4)
   community.general.filesystem:
     fstype: ext4
     dev: "{{ k3s_pg_device }}"
-  when: k3s_pg_device | length > 0
+  when: k3s_pg_device | length > 0 and k3s_allow_disk_format | bool
 
 - name: Mount PostgreSQL disk
   ansible.posix.mount:
@@ -53,11 +73,13 @@
     src: /var/lib/rancher/k3s/server/node-token
   delegate_to: "{{ groups['apps_cp'][0] }}"
   register: k3s_token_slurp
+  no_log: true
   when: k3s_role == 'agent'
 
 - name: Set join token fact (agents)
   ansible.builtin.set_fact:
     k3s_join_token: "{{ (k3s_token_slurp.content | b64decode) | trim }}"
+  no_log: true
   when: k3s_role == 'agent'
 
 - name: Collect service facts

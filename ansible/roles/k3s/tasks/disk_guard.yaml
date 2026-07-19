@@ -1,0 +1,26 @@
+---
+# Pre-format safety assertions (Amendment A1): refuse to mkfs unless the
+# inventory-supplied device demonstrably is the disk we expect — present,
+# not the disk backing /, not mounted anywhere else, and sized within the
+# declared bounds. Caller passes k3s_guard_{label,device,mount,min_gb,max_gb}.
+- name: Assert data disk is safe to format — {{ k3s_guard_label }}
+  vars:
+    k3s_guard_dev_name: "{{ k3s_guard_device | basename }}"
+    k3s_guard_dev_info: "{{ ansible_facts.devices[k3s_guard_dev_name] | default({}) }}"
+    k3s_guard_dev_bytes: "{{ (k3s_guard_dev_info.sectors | default(0) | int) * (k3s_guard_dev_info.sectorsize | default(512) | int) }}"
+    k3s_guard_root_device: "{{ (ansible_facts.mounts | selectattr('mount', 'equalto', '/') | first).device }}"
+    k3s_guard_foreign_mounts: "{{ ansible_facts.mounts | selectattr('device', 'equalto', k3s_guard_device) | rejectattr('mount', 'equalto', k3s_guard_mount) | list }}"
+  ansible.builtin.assert:
+    that:
+      - k3s_guard_dev_info | length > 0
+      - not k3s_guard_root_device.startswith(k3s_guard_device)
+      - k3s_guard_dev_bytes | int >= (k3s_guard_min_gb | int) * 1073741824
+      - k3s_guard_dev_bytes | int <= (k3s_guard_max_gb | int) * 1073741824
+      - k3s_guard_foreign_mounts | length == 0
+    fail_msg: >-
+      Refusing to format {{ k3s_guard_device }} ({{ k3s_guard_label }}):
+      present={{ k3s_guard_dev_info | length > 0 }},
+      bytes={{ k3s_guard_dev_bytes }},
+      expected_gib={{ k3s_guard_min_gb }}..{{ k3s_guard_max_gb }},
+      root_device={{ k3s_guard_root_device }},
+      foreign_mounts={{ k3s_guard_foreign_mounts | map(attribute='mount') | list }}

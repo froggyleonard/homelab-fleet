@@ -17,3 +17,16 @@ k3s_longhorn_device: ""
 k3s_longhorn_mount: /var/lib/longhorn
 k3s_pg_device: ""
 k3s_pg_mount: /var/lib/postgresql
+
+# Formatting is opt-in (Amendment A1): mkfs runs only when this is explicitly
+# true (set it via -e on rebuilds / new nodes), and only after disk_guard.yaml
+# asserts the device identity. Mounts are unaffected — already-formatted disks
+# keep mounting on normal runs with the default false.
+k3s_allow_disk_format: false
+
+# Expected size bounds (GiB) per data disk — the guard refuses devices outside
+# these ranges (terraform provisions Longhorn=200 GiB, PostgreSQL=20 GiB).
+k3s_longhorn_size_min_gb: 150
+k3s_longhorn_size_max_gb: 250
+k3s_pg_size_min_gb: 15
+k3s_pg_size_max_gb: 25

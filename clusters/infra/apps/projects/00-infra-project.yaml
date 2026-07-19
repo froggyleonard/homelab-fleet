@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: infra
+  namespace: argocd
+  annotations:
+    # Projects must exist before any Application references them.
+    argocd.argoproj.io/sync-wave: "-10"
+  labels:
+    app.kubernetes.io/name: infra
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  description: Hub-cluster platform — fleet repo only, hub destination only
+  sourceRepos:
+    - https://github.com/froggyleonard/homelab-fleet
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  # Platform components create CRDs and namespaces; namespace-level
+  # tightening is deferred to P6 when the final namespace list lands.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
