@@ -67,7 +67,10 @@ spec:
                         END IF;
                       END \$\$;" \
                   -c "ALTER ROLE $tenant LOGIN PASSWORD '$pw';"
-                if [ -z "$(psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$tenant'")" ]; then
+                # Standalone assignment so a failed psql aborts the run (set -e)
+                # instead of reading as "database missing".
+                exists=$(psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname = '$tenant'")
+                if [ -z "$exists" ]; then
                   psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE $tenant OWNER $tenant"
                 fi
                 psql -v ON_ERROR_STOP=1 -d postgres \

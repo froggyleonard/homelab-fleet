@@ -27,6 +27,7 @@ spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: postgres
+      app.kubernetes.io/component: server
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -69,6 +70,7 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: postgres
+              app.kubernetes.io/component: server
       ports:
         - port: 5432
           protocol: TCP
