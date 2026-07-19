@@ -1,0 +1,20 @@
+# TLS: served from Traefik's default store — wildcard cert lands there once
+# the Cloudflare issuer exists; until then it's the self-signed default.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: authentik
+  namespace: authentik
+  labels:
+    app.kubernetes.io/name: authentik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`auth.apps.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: authentik-server
+          port: 80

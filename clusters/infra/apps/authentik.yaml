@@ -1,0 +1,71 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: authentik
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: authentik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://charts.goauthentik.io
+    chart: authentik
+    targetRevision: 2026.5.5
+    helm:
+      valuesObject:
+        global:
+          # env beats the chart-generated envFrom secret, so the two secret
+          # values come from the SOPS-managed authentik-secrets while plain
+          # connection settings stay in values.
+          env:
+            - name: AUTHENTIK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-secrets
+                  key: secret-key
+            - name: AUTHENTIK_POSTGRESQL__PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-secrets
+                  key: postgres-password
+        authentik:
+          error_reporting:
+            enabled: false
+          postgresql:
+            host: postgres.postgres.svc.cluster.local
+            name: authentik
+            user: authentik
+        server:
+          replicas: 1
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+        worker:
+          replicas: 1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              # Old-cluster lesson: worker sits near 1Gi under normal load;
+              # the default limit OOM-killed it.
+              memory: 1536Mi
+        postgresql:
+          enabled: false
+  destination:
+    name: apps
+    namespace: authentik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
