@@ -1,0 +1,34 @@
+# Models are re-pullable — single Longhorn replica by plan (adjudication Q1
+# family: don't spend Media capacity replicating 60G of cache).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-single
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  staleReplicaTimeout: "2880"
+  dataLocality: best-effort
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: ollama
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-single
+  resources:
+    requests:
+      storage: 60Gi

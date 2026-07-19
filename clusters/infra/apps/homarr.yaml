@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: homarr
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: homarr
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/workloads/homarr
+  destination:
+    name: apps
+    namespace: homarr
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

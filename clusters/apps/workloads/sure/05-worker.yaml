@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sure-worker
+  namespace: sure
+  labels:
+    app.kubernetes.io/name: sure
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sure
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sure
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/we-promise/sure:0.7.0
+          command: [bundle, exec, sidekiq]
+          envFrom:
+            - secretRef:
+                name: sure-secrets
+          env:
+            - name: RAILS_ENV
+              value: production
+            - name: SELF_HOSTED
+              value: "true"
+            - name: APP_DOMAIN
+              value: sure.apps.froggyleonard.com
+            - name: REDIS_URL
+              value: redis://redis.sure.svc.cluster.local:6379/0
+            - name: EXCHANGE_RATE_PROVIDER
+              value: yahoo_finance
+            - name: SECURITIES_PROVIDER
+              value: yahoo_finance
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi

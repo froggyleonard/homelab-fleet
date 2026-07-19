@@ -1,0 +1,18 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: sure
+  namespace: sure
+  labels:
+    app.kubernetes.io/name: sure
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`sure.apps.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: sure
+          port: 80
