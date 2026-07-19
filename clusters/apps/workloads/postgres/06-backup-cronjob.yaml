@@ -1,0 +1,67 @@
+# Nightly logical backup — the only durability layer for PG (data PV is
+# single-node SSD by design). Dumps to the Longhorn/Media PVC, 14-day
+# retention. Restore: gunzip -c <file> | psql -U postgres.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgres
+            app.kubernetes.io/part-of: fleet
+            app.kubernetes.io/managed-by: argocd
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              image: postgres:18.4
+              env:
+                - name: PGHOST
+                  value: postgres.postgres.svc.cluster.local
+                - name: PGUSER
+                  value: postgres
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: postgres-password
+              command:
+                - /bin/bash
+                - -ceu
+                - -o
+                - pipefail
+                - |
+                  out="/backups/pg-$(date +%F-%H%M).sql.gz"
+                  pg_dumpall --clean --if-exists | gzip > "$out"
+                  gzip -t "$out"
+                  echo "wrote $out ($(du -h "$out" | cut -f1))"
+                  find /backups -name 'pg-*.sql.gz' -mtime +14 -delete
+                  echo "retained:"; ls -lh /backups
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: postgres-backups

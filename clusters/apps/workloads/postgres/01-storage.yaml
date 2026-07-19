@@ -1,0 +1,78 @@
+# PG data lives on the dedicated 20G SSD disk the k3s role mounted at
+# /var/lib/postgresql on apps-w1 (plan v2, adjudication Q1: node-local SSD PV,
+# replicas=1, protected by the nightly dump to Longhorn/Media instead of HDD
+# block replication). Static PV + pre-bound PVC; nothing else may claim rpool.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-manual
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-data
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  capacity:
+    storage: 19Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-manual
+  claimRef:
+    namespace: postgres
+    name: postgres-data
+  local:
+    # ext4 mount root; the image entrypoint creates PGDATA a level down, so
+    # lost+found never bothers initdb.
+    path: /var/lib/postgresql
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [apps-w1]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-manual
+  volumeName: postgres-data
+  resources:
+    requests:
+      storage: 19Gi
+---
+# Nightly dump target — Longhorn (default SC), so backups live on the Media
+# HDD pool with 2 replicas while live data stays on SSD.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backups
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 15Gi
