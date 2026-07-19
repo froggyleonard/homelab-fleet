@@ -1,29 +1,42 @@
 ---
-# Pre-format safety assertions (Amendment A1): refuse to mkfs unless the
-# inventory-supplied device demonstrably is the disk we expect — present,
-# not the disk backing /, not mounted anywhere else, and sized within the
-# declared bounds. Caller passes k3s_guard_{label,device,mount,min_gb,max_gb}.
+# Pre-format safety assertions (Amendment A1; device resolution fixed in A1-E1):
+# refuse to mkfs unless the inventory-supplied device demonstrably is the disk
+# we expect — present, not the disk backing /, not mounted anywhere else, and
+# sized within the declared bounds. The inventory uses stable
+# /dev/disk/by-path/ symlinks while ansible_facts.devices is keyed by kernel
+# names (sda, …), so resolve the symlink first and assert against the real
+# device. Caller passes k3s_guard_{label,device,mount,min_gb,max_gb}.
+- name: Resolve device path — {{ k3s_guard_label }}
+  ansible.builtin.stat:
+    path: "{{ k3s_guard_device }}"
+    follow: false
+  register: k3s_guard_stat
+
 - name: Assert data disk is safe to format — {{ k3s_guard_label }}
   vars:
-    k3s_guard_dev_name: "{{ k3s_guard_device | basename }}"
+    k3s_guard_real_device: "{{ k3s_guard_stat.stat.lnk_source | default(k3s_guard_device) }}"
+    k3s_guard_dev_name: "{{ k3s_guard_real_device | basename }}"
     k3s_guard_dev_info: "{{ ansible_facts.devices[k3s_guard_dev_name] | default({}) }}"
     k3s_guard_dev_bytes: "{{ (k3s_guard_dev_info.sectors | default(0) | int) * (k3s_guard_dev_info.sectorsize | default(512) | int) }}"
     k3s_guard_root_device: "{{ (ansible_facts.mounts | selectattr('mount', 'equalto', '/') | first).device }}"
     k3s_guard_foreign_mounts: >-
       {{ ansible_facts.mounts
-         | selectattr('device', 'equalto', k3s_guard_device)
+         | selectattr('device', 'in', [k3s_guard_device, k3s_guard_real_device])
          | rejectattr('mount', 'equalto', k3s_guard_mount)
          | list }}
   ansible.builtin.assert:
     that:
+      - k3s_guard_stat.stat.exists
       - k3s_guard_dev_info | length > 0
-      - not k3s_guard_root_device.startswith(k3s_guard_device)
+      - not k3s_guard_root_device.startswith(k3s_guard_real_device)
       - k3s_guard_dev_bytes | int >= (k3s_guard_min_gb | int) * 1073741824
       - k3s_guard_dev_bytes | int <= (k3s_guard_max_gb | int) * 1073741824
       - k3s_guard_foreign_mounts | length == 0
     fail_msg: >-
       Refusing to format {{ k3s_guard_device }} ({{ k3s_guard_label }}):
-      present={{ k3s_guard_dev_info | length > 0 }},
+      exists={{ k3s_guard_stat.stat.exists }},
+      resolved={{ k3s_guard_real_device }},
+      known_device={{ k3s_guard_dev_info | length > 0 }},
       bytes={{ k3s_guard_dev_bytes }},
       expected_gib={{ k3s_guard_min_gb }}..{{ k3s_guard_max_gb }},
       root_device={{ k3s_guard_root_device }},

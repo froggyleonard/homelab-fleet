@@ -1,3 +1,6 @@
+# Fresh-cluster note: this Application requires AppProject `infra` — apply
+# clusters/infra/apps/projects/ BEFORE this file (see clusters/README.md),
+# or root wedges on a nonexistent project and can never sync it into being.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

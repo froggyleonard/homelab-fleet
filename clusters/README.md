@@ -2,8 +2,14 @@
 
 ArgoCD-reconciled manifests. The hub on cluster-infra watches this directory.
 
-- `infra/bootstrap/` — the only thing applied by hand, once: ArgoCD + KSOPS + the
-  root Application. Everything after that is GitOps.
+- `infra/bootstrap/` — the only thing applied by hand, once. Fresh-cluster order
+  matters (root requires AppProject `infra`, which lives in the synced tree):
+  1. create the KSOPS age-key secret in the `argocd` namespace (cluster key)
+  2. `kubectl apply -k clusters/infra/bootstrap/argocd/`
+  3. `kubectl apply -f clusters/infra/apps/projects/` — AppProjects, including
+     root's own; skipping this wedges root on a nonexistent project
+  4. `kubectl apply -f clusters/infra/bootstrap/root-app.yaml`
+  Everything after that is GitOps.
 - `infra/platform/` — cert-manager, monitoring, Cilium config, kube-vip
 - `apps/bootstrap/` — spoke registration (cluster secret, SOPS-encrypted)
 - `apps/platform/` — Longhorn, Traefik, cert-manager, NetworkPolicy baseline
