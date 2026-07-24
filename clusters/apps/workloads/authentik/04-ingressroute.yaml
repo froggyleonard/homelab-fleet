@@ -1,5 +1,16 @@
-# TLS: served from Traefik's default store — wildcard cert lands there once
-# the Cloudflare issuer exists; until then it's the self-signed default.
+# TLS: served from Traefik's default store (wildcard *.apps cert).
+#
+# Two hostnames on purpose. `auth.apps` is the internal name; `auth` (bare) is
+# the public name published through the tunnel. Authentik builds absolute URLs
+# and scopes session cookies from the Host header it receives, so the tunnel
+# must NOT rewrite Host for this route — if it does, the browser is on one
+# hostname while Authentik believes it is on another, and the OOBE setup flow
+# fails because the session carrying its start marker is never returned.
+#
+# The bare name is not on the wildcard cert, which is fine: the tunnel sets
+# Origin Server Name to `auth.apps.froggyleonard.com` so TLS validates against
+# the wildcard, while Host passes through untouched for routing. SNI and Host
+# are independent.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -13,7 +24,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`auth.apps.froggyleonard.com`)
+    - match: Host(`auth.apps.froggyleonard.com`) || Host(`auth.froggyleonard.com`)
       kind: Rule
       services:
         - name: authentik-server
