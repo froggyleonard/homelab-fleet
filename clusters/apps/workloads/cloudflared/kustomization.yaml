@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 01-netpol.yaml
+  - 03-deployment.yaml
+generators:
+  # 02-secrets.sops.yaml is NOT a resource — KSOPS decrypts it at render time.
+  - ksops-generator.yaml
