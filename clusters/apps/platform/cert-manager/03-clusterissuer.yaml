@@ -1,0 +1,55 @@
+# ACME DNS-01 via Cloudflare. DNS-01 (not HTTP-01) because the wildcard
+# *.apps cert cannot be issued any other way, and because nothing is reachable
+# from the internet except through the tunnel.
+#
+# No `email:` field: Let's Encrypt permits registration without one, and this
+# repo is public — there is already an open finding about a personal address
+# leaking via terraform/variables.tf. If you want expiry notices, add an address
+# on froggyleonard.com here, not a personal mailbox.
+#
+# The DNS-01 self-check is pinned to public resolvers in the cert-manager Helm
+# values (clusters/infra/apps/cert-manager.yaml) because the Unbound wildcard
+# for *.apps shadows the _acme-challenge TXT record locally.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+---
+# Staging issuer: untrusted chain, but effectively unlimited rate limits.
+# Not used by default. If issuance misbehaves, flip the Certificate's issuerRef
+# to this, debug freely, then flip back — that keeps you clear of the
+# production duplicate-certificate ceiling (5 per week).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  labels:
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token

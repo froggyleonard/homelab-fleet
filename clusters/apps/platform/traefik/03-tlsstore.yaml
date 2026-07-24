@@ -1,0 +1,15 @@
+# Default TLS store: every IngressRoute that does not name its own certificate
+# gets the wildcard. Without this, Traefik serves its self-signed default cert
+# and every browser throws a warning even though a valid cert exists.
+apiVersion: traefik.io/v1alpha1
+kind: TLSStore
+metadata:
+  name: default # the name is significant — Traefik only treats "default" as the fallback
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  defaultCertificate:
+    secretName: apps-wildcard-tls

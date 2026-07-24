@@ -1,0 +1,24 @@
+# Public ingress connector. Outbound-only to the Cloudflare edge — this is what
+# replaces port-forwarding entirely, so no VLAN needs a public-facing role.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudflared
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cloudflared
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/workloads/cloudflared
+  destination:
+    name: apps
+    namespace: cloudflared
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

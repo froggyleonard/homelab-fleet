@@ -1,0 +1,22 @@
+# Wildcard cert for the apps cluster. Lives in the traefik namespace because
+# the TLSStore that consumes it can only reference a Secret in its own
+# namespace — cert-manager writes `secretName` here, Traefik reads it there.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: apps-wildcard
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  secretName: apps-wildcard-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  # A wildcard does not cover the apex, so apps.froggyleonard.com is listed
+  # explicitly alongside it.
+  dnsNames:
+    - "*.apps.froggyleonard.com"
+    - "apps.froggyleonard.com"
