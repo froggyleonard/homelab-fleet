@@ -1,8 +1,7 @@
 # 0004 — Fresh-start rebuild: no data migration
 
-- Status: **accepted** (task-005 plan v2 freeze, 2026-07-17; Guacamole removal
-  added at Gate A review, user-directed)
-- Deciders: operator, with two-model consensus review
+- Status: **accepted** (2026-07-17; Guacamole removal added)
+- Deciders: operator (solo)
 
 ## Context and problem statement
 
@@ -24,11 +23,11 @@ versions) would have been built for data that is cheaper to re-create.
 
 Option 2. No data is migrated. Safeguards, in order:
 
-- **P0 (before anything):** user exports the Vaultwarden ciphers via the web UI
-  (file stays with the user; password-manager replacement is a separate task).
-- **P4 teardown is gated:** old VMs are stopped first (rollback = start), a
-  last-chance data check re-confirms the exports, and only then are they
-  destroyed (no rollback — explicitly accepted).
+- **P0 (before anything):** I export the Vaultwarden ciphers via the web UI
+  (the file stays on my workstation; password-manager replacement is a separate task).
+- **P4 staged teardown:** I stop the old VMs first (rollback = start), do a
+  last-chance data check to re-confirm the exports, and only then destroy them
+  (no rollback — explicitly accepted).
 - Everything else is a **fresh install** per the plan's disposition table:
   Traefik/cert-manager/cloudflared, Authentik (providers reconfigured by hand),
   shared PostgreSQL with tenants exactly `authentik, n8n, sure`, n8n, Sure,
@@ -43,7 +42,7 @@ Option 2. No data is migrated. Safeguards, in order:
 - Accepted losses: n8n workflows are rebuilt incrementally; Authentik is
   reconfigured manually; historical Sure data before the SimpleFIN window is
   gone.
-- The destroy step is irreversible by design; the gate + staged stop/check/destroy
+- The destroy step is irreversible by design; the staged stop-check-destroy
   sequence is the control, not backups of the old estate.
 - Going forward the standing data-protection line is the nightly `pg_dump`
   CronJob to the HDD pool — the old cluster's "no backups" posture does not
