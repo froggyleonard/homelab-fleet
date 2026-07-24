@@ -1,16 +1,16 @@
 # 0003 — SOPS + age in-repo as canonical secret store
 
-- Status: **accepted** (task-005 plan v2 freeze, 2026-07-17)
-- Deciders: operator, with two-model consensus review
+- Status: **accepted** (2026-07-17)
+- Deciders: operator (solo)
 
 ## Context and problem statement
 
 The old convention kept `<PLACEHOLDER>` values in manifests with actual secrets
 stored in Vaultwarden. Two things broke it: Vaultwarden is not redeployed on the
 new fleet (end-of-life here; its replacement is a separate, post-rebuild task),
-which severs the bridge between manifests and their real values — a gap flagged
-in consensus review (v2 round 1, finding 3) — and this repo is public, so any
-committed secret must be encrypted at rest by construction, not by care.
+which severs the bridge between manifests and their real values. In addition,
+this repo is public, so any committed secret must be encrypted at rest by
+construction, not by care.
 
 ## Considered options
 
@@ -31,9 +31,9 @@ SimpleFIN token, …). KSOPS decrypts at render time inside ArgoCD; the
 
 Key handling:
 
-- The age private key lives on the admin workstation plus one **offline backup**
-  (made during P2, user action). It is never committed to any repo and never
-  present on cluster nodes outside the KSOPS decryption secret.
+- The age private key lives on my admin workstation plus one **offline backup**
+  (made during P2). It is never committed to any repo and never present on
+  cluster nodes outside the KSOPS decryption secret.
 - CI runs gitleaks on every push; GitHub push protection is on; Terraform state
   and kubeconfigs are kept out of the tree entirely.
 

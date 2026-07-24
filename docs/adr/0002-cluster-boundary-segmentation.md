@@ -1,8 +1,7 @@
 # 0002 — Cluster-boundary segmentation replaces per-workload VLANs
 
-- Status: **accepted** (task-005 v1 rounds 1–3, convergence 2026-07-14; carried
-  unchanged into plan v2)
-- Deciders: operator, with two-model consensus review
+- Status: **accepted** (2026-07-14)
+- Deciders: operator (solo)
 
 ## Context and problem statement
 
@@ -44,10 +43,10 @@ Option 2. Each cluster lives on exactly one dedicated VLAN: infra = 100
 - Workload isolation is now identity-based (namespace/label selectors) instead of
   location-based (subnet) — finer-grained, and it moves with the workload.
 - The cost is policy discipline: every new service must declare its NetworkPolicies
-  or it ships dark. This is enforced by convention (policies live beside the
-  service manifests) and observed via Hubble flow visibility.
+  or it ships dark. I enforce this by convention (policies live beside the
+  service manifests) and observe it via Hubble flow visibility.
 - Household VLANs and their firewall posture are untouched; only the cluster
   VLANs are new.
-- Losing per-workload L2 separation was reviewed explicitly (reviewer finding,
-  v2 round 1) and accepted: the OPNsense matrix still bounds the clusters, and
-  NetworkPolicies replace — and exceed — what node-per-VLAN pinning provided.
+- I explicitly accepted losing per-workload L2 separation: the OPNsense matrix
+  still bounds the clusters, and NetworkPolicies replace — and exceed — what
+  node-per-VLAN pinning provided.

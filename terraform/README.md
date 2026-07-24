@@ -4,7 +4,7 @@
 - `envs/pve` — the fleet: template 9000 (Ubuntu 24.04) + 6 VMs (201–203 infra, 211–213 apps)
 
 Auth is environment-only (`PROXMOX_VE_ENDPOINT`, `PROXMOX_VE_API_TOKEN`) — no
-credentials in this repo, ever. State is local and gitignored (single operator);
+credentials in this repo, ever. State is local and gitignored (I run this solo);
 remote state is a deliberate non-goal for now.
 
 Real network addressing is also environment-only: copy
