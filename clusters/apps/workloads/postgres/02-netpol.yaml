@@ -35,7 +35,7 @@ spec:
             matchExpressions:
               - key: kubernetes.io/metadata.name
                 operator: In
-                values: [authentik, n8n, sure]
+                values: [authentik, n8n, sure, plane]
         - podSelector: {} # same-namespace jobs
       ports:
         - port: 5432
