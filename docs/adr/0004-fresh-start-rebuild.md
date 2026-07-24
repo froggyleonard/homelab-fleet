@@ -1,6 +1,6 @@
 # 0004 — Fresh-start rebuild: no data migration
 
-- Status: **accepted** (2026-07-17; Guacamole removal added)
+- Status: **accepted** (2026-07-17)
 - Deciders: operator (solo)
 
 ## Context and problem statement
