@@ -1,7 +1,7 @@
 # 0001 — Two-cluster topology on a single node (RKE2 infra + k3s apps)
 
-- Status: **accepted** (task-005 plan v2 freeze, 2026-07-17)
-- Deciders: operator, with two-model consensus review (orchestrator + external reviewer)
+- Status: **accepted** (2026-07-17)
+- Deciders: operator (solo)
 
 ## Context and problem statement
 
@@ -43,10 +43,10 @@ infra manages both clusters hub-and-spoke (app-of-apps + ApplicationSets).
 - Platform upgrades (ArgoCD, monitoring, RKE2 itself) no longer risk workloads,
   and vice versa.
 - The 3-node control plane is HA at the VM/OS layer only — everything sits on one
-  physical node, so hardware failure takes the fleet. Accepted: the mitigation is
-  GitOps + SOPS (rebuild-from-repo), not hardware redundancy.
+  physical node, so hardware failure takes the fleet. I accept this: the mitigation
+  is GitOps + SOPS (rebuild-from-repo), not hardware redundancy.
 - More moving parts than one cluster: two CNI installs, two upgrade tracks, spoke
   registration.
-- SSD capacity is thin-provisioned with overcommit; growth is directed off the SSD
-  pool (Longhorn + backups on HDD) and an ≤80% usage checkpoint gates every build
-  phase until a Prometheus alert takes over.
+- SSD capacity is thin-provisioned with overcommit; I direct growth off the SSD
+  pool (Longhorn + backups on HDD). I enforce a hard ≤80% SSD usage checkpoint
+  before deploying anything new, until a Prometheus alert takes over.
