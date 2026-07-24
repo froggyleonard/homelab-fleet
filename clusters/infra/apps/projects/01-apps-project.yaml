@@ -68,3 +68,8 @@ spec:
       kind: CiliumLoadBalancerIPPool
     - group: cilium.io
       kind: CiliumL2AnnouncementPolicy
+    # ACME issuers are cluster-scoped. Certificate is namespaced and applies
+    # without this, so omitting it fails quietly: the cert sits Progressing
+    # forever waiting on an issuer Argo is not permitted to create.
+    - group: cert-manager.io
+      kind: ClusterIssuer
