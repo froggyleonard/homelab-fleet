@@ -1,0 +1,87 @@
+# Default-deny; UI/API in via Traefik only, pods talk freely inside the
+# namespace (api/worker/beat <-> redis, rabbitmq, minio). Egress: DNS, shared
+# PG, intra-namespace, and 443 out — instance registration, integrations, and
+# release checks call external APIs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: plane-ingress
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    # Traefik terminates the IngressRoute: web/space/admin/live on 3000,
+    # api on 8000, minio (uploads path) on 9000.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 3000
+          protocol: TCP
+        - port: 8000
+          protocol: TCP
+        - port: 9000
+          protocol: TCP
+    # Same-namespace traffic: app pods <-> redis/rabbitmq/minio + migrator job.
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: plane-egress
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    - to:
+        - podSelector: {}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+          protocol: TCP

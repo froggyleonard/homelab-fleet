@@ -17,6 +17,7 @@ spec:
     - https://traefik.github.io/charts
     - https://charts.jetstack.io
     - https://charts.goauthentik.io
+    - https://helm.plane.so
   # The apps project can never target the hub: spoke destination only.
   # P6 tightening: enumerated workload namespaces.
   destinations:
@@ -42,6 +43,8 @@ spec:
       namespace: ollama
     - name: apps
       namespace: cloudflared
+    - name: apps
+      namespace: plane
   # Cluster-scoped kinds the charts/configs actually ship: CRDs + RBAC +
   # webhooks (longhorn/traefik/cert-manager), StorageClasses + the static PG
   # PV, namespaces themselves, Cilium LB pools, longhorn's PriorityClass.
