@@ -40,8 +40,15 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    # The only in-cluster destination: Traefik. Every public hostname resolves
-    # to the ingress VIP, so cloudflared forwards here and nowhere else.
+    # The only in-cluster destination: Traefik. cloudflared forwards here and
+    # nowhere else.
+    #
+    # Both the Service ports (80/443) and the container ports (8000/8443) are
+    # listed deliberately. Cilium's kube-proxy replacement translates the
+    # ClusterIP at the socket, before policy is evaluated, so the rule gets
+    # matched against the backend pod's port — 8443, not 443. Allowing only the
+    # Service ports drops the traffic with no log anywhere: Traefik never sees a
+    # connection, and cloudflared reports only that the request ended abruptly.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -50,6 +57,10 @@ spec:
         - port: 443
           protocol: TCP
         - port: 80
+          protocol: TCP
+        - port: 8443
+          protocol: TCP
+        - port: 8000
           protocol: TCP
     # Cloudflare edge. 7844 is the tunnel transport (QUIC over UDP, TCP
     # fallback); 443 covers registration and update checks. RFC1918 is excluded
