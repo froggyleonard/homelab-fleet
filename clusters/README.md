@@ -2,14 +2,14 @@
 
 ArgoCD-reconciled manifests. The hub on cluster-infra watches this directory.
 
-- `infra/bootstrap/` — the only thing applied by hand, once. Fresh-cluster order
+- `infra/bootstrap/` — the only thing I apply by hand, once. Fresh-cluster order
   matters: the namespace must exist before the secret, the AppProject CRD must
   be established before the projects, and the projects before root:
   1. `kubectl apply -f clusters/infra/bootstrap/argocd/namespace.yaml`
-  2. `kubectl -n argocd create secret generic sops-age
+  2. `kubectl -n argocd create secret generic sops-age \
      --from-file=keys.txt=<cluster age private key>`
   3. `kubectl apply -k clusters/infra/bootstrap/argocd/`
-  4. `kubectl wait --for=condition=Established
+  4. `kubectl wait --for=condition=Established \
      crd/appprojects.argoproj.io --timeout=120s`
   5. `kubectl apply -f clusters/infra/apps/projects/` — AppProjects, including
      root's own; skipping this wedges root on a nonexistent project
