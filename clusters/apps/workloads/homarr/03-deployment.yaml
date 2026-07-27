@@ -49,6 +49,22 @@ spec:
                 secretKeyRef:
                   name: homarr-secrets
                   key: encryption-key
+            # credentials fallback stays until OIDC is proven; drop it to go SSO-only
+            - name: AUTH_PROVIDERS
+              value: oidc,credentials
+            - name: AUTH_OIDC_ISSUER
+              value: https://auth.froggyleonard.com/application/o/homarr/
+            - name: AUTH_OIDC_CLIENT_ID
+              value: HcLyCrofMGNstdxy3qqQvoCOAKwB2heMs2xV2AHc
+            - name: AUTH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: homarr-secrets
+                  key: oidc-client-secret
+            - name: AUTH_OIDC_CLIENT_NAME
+              value: Authentik
+            - name: AUTH_LOGOUT_REDIRECT_URL
+              value: https://auth.froggyleonard.com/application/o/homarr/end-session/
           volumeMounts:
             - name: data
               mountPath: /appdata
