@@ -1,0 +1,26 @@
+# Cluster-scoped storage plumbing for cluster-apps (currently just the
+# local-manual StorageClass). Destination namespace is nominal — this app ships
+# cluster-scoped resources only; kube-system is already an allowed project
+# destination.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: storage-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: storage-local
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/workloads/storage-local
+  destination:
+    name: apps
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

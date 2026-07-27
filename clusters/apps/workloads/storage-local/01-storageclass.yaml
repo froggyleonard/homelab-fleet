@@ -1,0 +1,15 @@
+# Fleet-wide class for statically provisioned node-local SSD volumes (task 011:
+# one dedicated DB instance per app, each on a static PV carved from the
+# apps-w1 SSD mount). Moved out of workloads/postgres so the class outlives the
+# shared-PG decommission. No provisioner: every PV is declared by hand next to
+# the app that owns it.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-manual
+  labels:
+    app.kubernetes.io/name: storage-local
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
