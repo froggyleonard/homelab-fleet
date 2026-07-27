@@ -5,6 +5,10 @@ kind: Application
 metadata:
   name: plane-config
   namespace: argocd
+  # Teardown prep (task 010): cascade-delete managed resources when this
+  # Application is removed. Without it, deleting the file orphans the workload.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
   labels:
     app.kubernetes.io/name: plane-config
     app.kubernetes.io/part-of: fleet
