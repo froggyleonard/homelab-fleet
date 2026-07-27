@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits"],
+  "kubernetes": {
+    "fileMatch": ["^clusters/.+\\.yaml$"]
+  },
+  "argocd": {
+    "fileMatch": ["^clusters/infra/apps/.+\\.yaml$"]
+  },
+  "packageRules": [
+    {
+      "description": "MinIO date-stamped tags need custom versioning",
+      "matchPackageNames": ["minio/minio"],
+      "versioning": "regex:^RELEASE\\.(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})T.*$"
+    },
+    {
+      "description": "Group patch-level bumps into one PR",
+      "matchUpdateTypes": ["patch"],
+      "groupName": "patch updates"
+    },
+    {
+      "description": "Majors get individual PRs and stay unmerged until reviewed",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "prConcurrentLimit": 5,
+  "labels": ["renovate"]
+}
