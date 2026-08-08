@@ -1,0 +1,11 @@
+all:
+  vars:
+    ansible_user: ops
+    # net_prefix comes from inventory/group_vars/all/network.yaml (gitignored),
+    # same as the fleet inventory.
+  children:
+    dev:
+      hosts:
+        # Separate inventory on purpose: site.yaml's `hosts: all` cluster plays
+        # must never touch the dev workstation.
+        dev-ws1: { ansible_host: "{{ net_prefix }}.20.21" }

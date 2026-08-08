@@ -1,0 +1,8 @@
+---
+# Dev workstation (task 013). Run with:
+#   ansible-playbook -i inventory/dev.yaml dev.yaml
+- name: Dev workstation (dev-ws1)
+  hosts: dev
+  become: true
+  roles:
+    - dev_workstation

@@ -1,0 +1,20 @@
+---
+dev_workstation_user: ops
+
+# NodeSource major series. Engines: claude-code >= 22, ACP adapter >= 22,
+# codex >= 16 — 22.x LTS satisfies all.
+dev_workstation_node_major: "22"
+
+# npm CLI pins — verified against registry.npmjs.org at authoring (2026-08-07).
+# The renovate comments feed the customManagers regex in /renovate.json;
+# keep each comment directly above its version line.
+# renovate: datasource=npm depName=@anthropic-ai/claude-code
+dev_workstation_claude_code_version: "2.1.224"
+# renovate: datasource=npm depName=@openai/codex
+dev_workstation_codex_version: "0.147.0"
+# renovate: datasource=npm depName=@agentclientprotocol/claude-agent-acp
+dev_workstation_claude_agent_acp_version: "0.66.0"
+
+# Antigravity CLI (agy) is installed via Google's official installer and
+# self-updates — not pinnable, not Renovate-tracked. The provisioned version
+# is recorded in the play output.

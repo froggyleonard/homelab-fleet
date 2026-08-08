@@ -19,8 +19,16 @@ locals {
   node     = "pve"
   gw_infra = "${var.net_prefix}.100.1"
   gw_apps  = "${var.net_prefix}.110.1"
+  gw_user  = "${var.net_prefix}.20.1"
   ssh_keys = var.ssh_public_keys
   template = 9000
+
+  # Dev workstation (task 013) — USER VLAN so the desktop reaches it without
+  # cross-VLAN rules. Static IP below the DHCP pool (.100-.200). Tagged "dev",
+  # not "fleet": cluster automation must never pick it up.
+  dev = {
+    dev-ws1 = { vmid = 220, cores = 8, mem = 16384, vlan = 20, ip = "${var.net_prefix}.20.21", gw = local.gw_user, os_gb = 60, extra = [] }
+  }
 
   fleet = {
     infra-cp1 = { vmid = 201, cores = 2, mem = 6144, vlan = 100, ip = "${var.net_prefix}.100.11", gw = local.gw_infra, os_gb = 25, extra = [] }
@@ -99,6 +107,25 @@ module "fleet" {
   vmid            = each.value.vmid
   node_name       = local.node
   template_id     = proxmox_virtual_environment_vm.template.vm_id
+  cores           = each.value.cores
+  memory_mib      = each.value.mem
+  vlan_tag        = each.value.vlan
+  ip              = each.value.ip
+  gateway         = each.value.gw
+  os_disk_gb      = each.value.os_gb
+  extra_disks     = each.value.extra
+  ssh_public_keys = local.ssh_keys
+}
+
+module "dev" {
+  source   = "../../modules/vm"
+  for_each = local.dev
+
+  name            = each.key
+  vmid            = each.value.vmid
+  node_name       = local.node
+  template_id     = proxmox_virtual_environment_vm.template.vm_id
+  tags            = ["dev"]
   cores           = each.value.cores
   memory_mib      = each.value.mem
   vlan_tag        = each.value.vlan

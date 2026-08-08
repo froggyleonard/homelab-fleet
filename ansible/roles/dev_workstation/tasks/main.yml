@@ -1,0 +1,182 @@
+---
+# Baseline — the dev twin of common_hardening, deliberately WITHOUT the
+# Kubernetes node prep (modprobe/sysctls/swapoff/open-iscsi). A shared
+# common_base split is a deferred follow-up (task 013, D4).
+- name: Update apt cache and upgrade
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: safe
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - qemu-guest-agent
+      - unattended-upgrades
+      - nftables
+      - chrony
+      - curl
+      - ca-certificates
+      - gnupg
+    state: present
+
+- name: Enable qemu-guest-agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+- name: Harden sshd — key-only, no root (same content as fleet drop-in)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-dev-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      X11Forwarding no
+      MaxAuthTries 4
+  notify: Restart sshd
+
+- name: Configure unattended-upgrades — security only, no auto-reboot
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/52-dev-unattended.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      Unattended-Upgrade::Automatic-Reboot "false";
+
+# Dev tooling
+- name: Install dev packages
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - git
+      - ripgrep
+      - fd-find
+      - fzf
+      - jq
+      - tmux
+      - unzip
+      - python3-venv
+      - sqlite3
+    state: present
+
+- name: Ensure apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add GitHub CLI apt key
+  ansible.builtin.get_url:
+    url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    dest: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    mode: "0644"
+
+- name: Add GitHub CLI apt repo
+  ansible.builtin.deb822_repository:
+    name: github-cli
+    uris: https://cli.github.com/packages
+    suites: stable
+    components: main
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+
+- name: Install gh
+  ansible.builtin.apt:
+    name: gh
+    state: present
+    update_cache: true
+
+- name: Add NodeSource apt key (dearmored)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+      | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+  args:
+    creates: /etc/apt/keyrings/nodesource.gpg
+    executable: /bin/bash
+
+- name: Add NodeSource apt repo
+  ansible.builtin.deb822_repository:
+    name: nodesource
+    uris: "https://deb.nodesource.com/node_{{ dev_workstation_node_major }}.x"
+    suites: nodistro
+    components: main
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/nodesource.gpg
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: true
+
+- name: Install pinned npm CLIs (claude-code, codex, ACP adapter)
+  community.general.npm:
+    name: "{{ item.name }}"
+    version: "{{ item.version }}"
+    global: true
+  loop:
+    - { name: "@anthropic-ai/claude-code", version: "{{ dev_workstation_claude_code_version }}" }
+    - { name: "@openai/codex", version: "{{ dev_workstation_codex_version }}" }
+    - { name: "@agentclientprotocol/claude-agent-acp", version: "{{ dev_workstation_claude_agent_acp_version }}" }
+
+- name: Add Tailscale apt key
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg
+    dest: /etc/apt/keyrings/tailscale-archive-keyring.gpg
+    mode: "0644"
+
+- name: Add Tailscale apt repo
+  ansible.builtin.deb822_repository:
+    name: tailscale
+    uris: https://pkgs.tailscale.com/stable/ubuntu
+    suites: noble
+    components: main
+    signed_by: /etc/apt/keyrings/tailscale-archive-keyring.gpg
+
+- name: Install tailscale (daemon up, logged out — `tailscale up` is a user step)
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+
+- name: Enable tailscaled
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: true
+    state: started
+
+# Antigravity CLI — official installer, SHA512-verified, self-updating.
+# Per-user install; runs unprivileged as {{ dev_workstation_user }}.
+- name: Install Antigravity CLI (agy)
+  become: false
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://antigravity.google/cli/install.sh | bash
+  args:
+    creates: "/home/{{ dev_workstation_user }}/.local/bin/agy"
+    executable: /bin/bash
+
+- name: Record provisioned agy version (self-updates; not pinnable)
+  become: false
+  ansible.builtin.command: "/home/{{ dev_workstation_user }}/.local/bin/agy --version"
+  register: dev_workstation_agy_version
+  changed_when: false
+
+- name: Show provisioned agy version
+  ansible.builtin.debug:
+    msg: "agy {{ dev_workstation_agy_version.stdout }}"
+
+- name: Create ~/src for repos (cloning needs user auth — user step)
+  become: false
+  ansible.builtin.file:
+    path: "/home/{{ dev_workstation_user }}/src"
+    state: directory
+    mode: "0755"
