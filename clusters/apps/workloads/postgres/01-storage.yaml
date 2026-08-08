@@ -2,17 +2,7 @@
 # /var/lib/postgresql on apps-w1 (plan v2, adjudication Q1: node-local SSD PV,
 # replicas=1, protected by the nightly dump to Longhorn/Media instead of HDD
 # block replication). Static PV + pre-bound PVC; nothing else may claim rpool.
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: local-manual
-  labels:
-    app.kubernetes.io/name: postgres
-    app.kubernetes.io/part-of: fleet
-    app.kubernetes.io/managed-by: argocd
-provisioner: kubernetes.io/no-provisioner
-volumeBindingMode: WaitForFirstConsumer
----
+# The local-manual StorageClass moved to workloads/storage-local (task 011).
 apiVersion: v1
 kind: PersistentVolume
 metadata:
