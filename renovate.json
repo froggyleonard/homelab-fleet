@@ -7,6 +7,16 @@
   "argocd": {
     "fileMatch": ["^clusters/infra/apps/.+\\.yaml$"]
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "npm CLI pins in the dev workstation ansible role",
+      "fileMatch": ["^ansible/roles/dev_workstation/defaults/main\\.yml$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\n[a-z_]+_version: \"(?<currentValue>[^\"]+)\""
+      ]
+    }
+  ],
   "packageRules": [
     {
       "description": "MinIO date-stamped tags need custom versioning",
