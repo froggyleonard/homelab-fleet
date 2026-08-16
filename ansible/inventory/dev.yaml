@@ -6,6 +6,7 @@ all:
   children:
     dev:
       hosts:
-        # Separate inventory on purpose: site.yaml's `hosts: all` cluster plays
-        # must never touch the dev workstation.
+        # Separate inventory on purpose, and site.yaml's plays are scoped to
+        # the fleet groups (infra_cp:apps_cp:apps_workers) — two layers
+        # keeping cluster plays off the dev workstation.
         dev-ws1: { ansible_host: "{{ net_prefix }}.20.21" }

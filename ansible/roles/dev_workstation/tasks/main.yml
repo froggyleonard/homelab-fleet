@@ -117,7 +117,7 @@
     state: present
     update_cache: true
 
-- name: Install pinned npm CLIs (claude-code, codex, ACP adapter)
+- name: Install pinned npm CLIs (claude-code, codex)
   community.general.npm:
     name: "{{ item.name }}"
     version: "{{ item.version }}"
@@ -125,7 +125,16 @@
   loop:
     - { name: "@anthropic-ai/claude-code", version: "{{ dev_workstation_claude_code_version }}" }
     - { name: "@openai/codex", version: "{{ dev_workstation_codex_version }}" }
-    - { name: "@agentclientprotocol/claude-agent-acp", version: "{{ dev_workstation_claude_agent_acp_version }}" }
+
+# JetBrains Remote Development backend (IntelliJ IDEA Ultimate) is
+# auto-provisioned by Gateway over SSH — nothing to install here. Raise the
+# inotify watch budget per JetBrains' file-watcher recommendation.
+- name: Raise inotify watch limit for the JetBrains backend
+  ansible.posix.sysctl:
+    name: fs.inotify.max_user_watches
+    value: "524288"
+    sysctl_file: /etc/sysctl.d/90-jetbrains.conf
+    reload: true
 
 - name: Add Tailscale apt key
   ansible.builtin.get_url:

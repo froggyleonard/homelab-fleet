@@ -1,6 +1,6 @@
 ---
 - name: Baseline hardening (all fleet nodes)
-  hosts: all
+  hosts: infra_cp:apps_cp:apps_workers
   become: true
   roles:
     - common_hardening
