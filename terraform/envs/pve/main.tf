@@ -48,12 +48,17 @@ locals {
 # Ubuntu 24.04 (Noble) cloud image → template 9000.
 # content_type "import" (not "iso") so the VM disk can import_from it;
 # the .qcow2 name is required for PVE to accept it as an importable image.
+# overwrite=false: the /current/ URL is a moving daily target — without this,
+# every upstream rebuild forces a re-download that replaces the datastore file
+# and re-imports the template disk (and the size HEAD runs on the pve node,
+# stalling every plan). The stored image stays authoritative once downloaded.
 resource "proxmox_download_file" "noble" {
   node_name    = local.node
   datastore_id = "local"
   content_type = "import"
   file_name    = "noble-server-cloudimg-amd64.qcow2"
   url          = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+  overwrite    = false
 }
 
 resource "proxmox_virtual_environment_vm" "template" {
