@@ -1,0 +1,15 @@
+---
+# Distribute the orchestrator seat's (dev-ws1) public key to the existing
+# fleet nodes (task 014 step 17) — cloud-init only covers rebuilds, this
+# covers the running VMs. Run FROM a machine whose key the nodes already
+# trust (the desktop, one last time):
+#   ansible-playbook -i inventory/fleet.yaml seat-key.yaml
+- name: Authorize the orchestrator seat key on fleet nodes
+  hosts: infra_cp:apps_cp:apps_workers
+  become: false
+  tasks:
+    - name: Add dev-ws1 seat key to ops authorized_keys
+      ansible.posix.authorized_key:
+        user: ops
+        state: present
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHnZfeKhSdaX1ceZX/jPdUkhfpTVE1evbj9z00GT99lc ops@dev-ws1 seat 2026-08-17"
