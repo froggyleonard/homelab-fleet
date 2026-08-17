@@ -2,6 +2,9 @@
 
 - Status: **accepted** (2026-07-17)
 - Deciders: operator (solo)
+- Amended: 2026-08-17 — the key-residency clause ("workstation-only") is
+  partially superseded by [0006](0006-admin-seat-migration.md): residency
+  follows the admin seat (now dev-ws1). Everything else here stands.
 
 ## Context and problem statement
 

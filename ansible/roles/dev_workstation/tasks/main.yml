@@ -189,3 +189,80 @@
     path: "/home/{{ dev_workstation_user }}/src"
     state: directory
     mode: "0755"
+
+# ── Orchestrator-seat toolchain (task 014, ADR 0006) ─────────────────────
+# This box is the orchestrator seat: terraform (parity-pinned — the state
+# must be verified on the same version that wrote it), sops + age (SOPS
+# decrypt), kubectl (both clusters), uv/uvx (plane MCP).
+
+- name: Add HashiCorp apt key (dearmored)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://apt.releases.hashicorp.com/gpg \
+      | gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+    executable: /bin/bash
+
+- name: Add HashiCorp apt repo
+  ansible.builtin.deb822_repository:
+    name: hashicorp
+    uris: https://apt.releases.hashicorp.com
+    suites: noble
+    components: main
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+
+- name: Install terraform (parity pin — see defaults)
+  ansible.builtin.apt:
+    name: "terraform={{ dev_workstation_terraform_version }}-*"
+    state: present
+    update_cache: true
+
+- name: Install age (apt)
+  ansible.builtin.apt:
+    name: age
+    state: present
+
+- name: Install sops (pinned release binary; pinned sha256 is the trust anchor)
+  ansible.builtin.get_url:
+    url: "https://github.com/getsops/sops/releases/download/v{{ dev_workstation_sops_version }}/sops-v{{ dev_workstation_sops_version }}.linux.amd64"
+    dest: /usr/local/bin/sops
+    mode: "0755"
+    checksum: "sha256:{{ dev_workstation_sops_sha256 }}"
+
+- name: Add Kubernetes apt key (dearmored)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL "https://pkgs.k8s.io/core:/stable:/v{{ dev_workstation_kubectl_minor }}/deb/Release.key" \
+      | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    executable: /bin/bash
+
+- name: Add Kubernetes apt repo (pinned minor — bump with cluster upgrades)
+  ansible.builtin.deb822_repository:
+    name: kubernetes
+    uris: "https://pkgs.k8s.io/core:/stable:/v{{ dev_workstation_kubectl_minor }}/deb/"
+    suites: /
+    signed_by: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Install kubectl
+  ansible.builtin.apt:
+    name: kubectl
+    state: present
+    update_cache: true
+
+- name: Download uv release tarball (pinned version + sha256)
+  ansible.builtin.get_url:
+    url: "https://github.com/astral-sh/uv/releases/download/{{ dev_workstation_uv_version }}/uv-x86_64-unknown-linux-gnu.tar.gz"
+    dest: "/usr/local/src/uv-{{ dev_workstation_uv_version }}.tar.gz"
+    mode: "0644"
+    checksum: "sha256:{{ dev_workstation_uv_sha256 }}"
+
+- name: Install uv/uvx to /usr/local/bin
+  ansible.builtin.unarchive:
+    src: "/usr/local/src/uv-{{ dev_workstation_uv_version }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    extra_opts: ["--strip-components=1"]

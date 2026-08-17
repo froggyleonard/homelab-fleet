@@ -16,3 +16,39 @@ dev_workstation_codex_version: "0.147.0"
 # Antigravity CLI (agy) is installed via Google's official installer and
 # self-updates — not pinnable, not Renovate-tracked. The provisioned version
 # is recorded in the play output.
+
+# ── Orchestrator-seat toolchain (task 014, ADR 0006) ─────────────────────
+# Pins verified against upstream releases at authoring (2026-08-16/17).
+# Renovate comments feed the same customManagers regex as the npm pins
+# (Renovate is currently inert — Mend app not installed, 013 A3 — so these
+# are tracked-but-not-bumped; every bump is manually re-verified).
+
+# terraform: parity pin — the desktop seat ran v1.15.8 (captured 2026-08-17,
+# task 014 step 1), which is also the current release (verified 2026-08-16),
+# so migration-parity and latest coincide and the post-migration upgrade step
+# is a no-op. State format upgrades are one-way: never bump this past the
+# version that wrote the live state without a verified zero-diff plan.
+# renovate: datasource=github-releases depName=hashicorp/terraform
+dev_workstation_terraform_version: "1.15.8"
+
+# sops: the pinned sha256 below is the trust anchor (ansible get_url refuses
+# a mismatching download). Digest cross-checked against the release's
+# checksums.txt asset at authoring:
+# https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.checksums.txt
+# renovate: datasource=github-releases depName=getsops/sops
+dev_workstation_sops_version: "3.13.3"
+# sha256 of sops-v<version>.linux.amd64 — MUST be updated together with the
+# version line, from the checksums.txt of the new release.
+dev_workstation_sops_sha256: "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b"
+
+# kubectl: pkgs.k8s.io minor repo. Clusters run RKE2 v1.35.x / k3s v1.36.x
+# (roles/rke2, roles/k3s defaults) — 1.36 is within the ±1 client skew of
+# both. Bump this minor alongside cluster upgrades, not independently.
+dev_workstation_kubectl_minor: "1.36"
+
+# uv/uvx: needed by the plane MCP server (uvx plane-mcp-server). Pinned
+# release tarball, not the curl|sh installer (unpinned, per-user).
+# renovate: datasource=github-releases depName=astral-sh/uv
+dev_workstation_uv_version: "0.12.5"
+# sha256 of uv-x86_64-unknown-linux-gnu.tar.gz — update with the version.
+dev_workstation_uv_sha256: "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2"

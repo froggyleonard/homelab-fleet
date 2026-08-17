@@ -1,9 +1,10 @@
 # Terraform — state and workdirs never in git
+# (.terraform.lock.hcl IS committed — task 014 / ADR 0006: provider checksums
+# only, no secrets; pins the exact provider build across seats and rebuilds.)
 *.tfstate
 *.tfstate.*
 *.tfplan
 .terraform/
-.terraform.lock.hcl
 terraform.tfvars
 *.auto.tfvars
 
