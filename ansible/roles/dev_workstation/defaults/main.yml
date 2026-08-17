@@ -23,6 +23,14 @@ dev_workstation_codex_version: "0.147.0"
 # (Renovate is currently inert — Mend app not installed, 013 A3 — so these
 # are tracked-but-not-bumped; every bump is manually re-verified).
 
+# terraform: parity pin — the desktop seat ran v1.15.8 (captured 2026-08-17,
+# task 014 step 1), which is also the current release (verified 2026-08-16),
+# so migration-parity and latest coincide and the post-migration upgrade step
+# is a no-op. State format upgrades are one-way: never bump this past the
+# version that wrote the live state without a verified zero-diff plan.
+# renovate: datasource=github-releases depName=hashicorp/terraform
+dev_workstation_terraform_version: "1.15.8"
+
 # sops: the pinned sha256 below is the trust anchor (ansible get_url refuses
 # a mismatching download). Digest cross-checked against the release's
 # checksums.txt asset at authoring:

@@ -191,11 +191,33 @@
     mode: "0755"
 
 # ── Orchestrator-seat toolchain (task 014, ADR 0006) ─────────────────────
-# This box is the orchestrator seat: sops + age (SOPS decrypt), kubectl
-# (both clusters), uv/uvx (plane MCP). Terraform is added in a follow-up
-# commit once the migration parity version is captured (task 014 step 1) —
-# the state must be verified on the same terraform version it was written
-# with before any upgrade.
+# This box is the orchestrator seat: terraform (parity-pinned — the state
+# must be verified on the same version that wrote it), sops + age (SOPS
+# decrypt), kubectl (both clusters), uv/uvx (plane MCP).
+
+- name: Add HashiCorp apt key (dearmored)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://apt.releases.hashicorp.com/gpg \
+      | gpg --dearmor -o /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+    executable: /bin/bash
+
+- name: Add HashiCorp apt repo
+  ansible.builtin.deb822_repository:
+    name: hashicorp
+    uris: https://apt.releases.hashicorp.com
+    suites: noble
+    components: main
+    architectures: amd64
+    signed_by: /etc/apt/keyrings/hashicorp-archive-keyring.gpg
+
+- name: Install terraform (parity pin — see defaults)
+  ansible.builtin.apt:
+    name: "terraform={{ dev_workstation_terraform_version }}-*"
+    state: present
+    update_cache: true
 
 - name: Install age (apt)
   ansible.builtin.apt:
