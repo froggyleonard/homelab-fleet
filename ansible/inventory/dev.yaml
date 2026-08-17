@@ -9,4 +9,10 @@ all:
         # Separate inventory on purpose, and site.yaml's plays are scoped to
         # the fleet groups (infra_cp:apps_cp:apps_workers) — two layers
         # keeping cluster plays off the dev workstation.
-        dev-ws1: { ansible_host: "{{ net_prefix }}.20.21" }
+        dev-ws1:
+          # Kept as documentation; connection is local (below).
+          ansible_host: "{{ net_prefix }}.20.21"
+          # task 014: the desktop ansible seat is retired — this box provisions
+          # itself. Run dev.yaml FROM dev-ws1 (local become ⇒ the operator runs
+          # the play; sudo never comes from an agent).
+          ansible_connection: local
