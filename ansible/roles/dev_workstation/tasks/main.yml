@@ -195,6 +195,21 @@
 # must be verified on the same version that wrote it), sops + age (SOPS
 # decrypt), kubectl (both clusters), uv/uvx (plane MCP).
 
+# The user VLAN's router advertisements hand out a global IPv6 address and
+# default route whose egress is dead (task 014 failure-1). curl falls back
+# to IPv4 in milliseconds (happy-eyeballs); Python HTTP clients — ansible
+# get_url below, ansible-galaxy, pip — do not, and hang for minutes per
+# address. Prefer IPv4 for dual-stack destinations until v6 egress actually
+# works end-to-end; remove this line once it does. Must precede the
+# get_url tasks below.
+- name: Prefer IPv4 for dual-stack lookups (dead v6 egress on this VLAN)
+  ansible.builtin.lineinfile:
+    path: /etc/gai.conf
+    regexp: '^precedence ::ffff:0:0/96'
+    line: "precedence ::ffff:0:0/96  100"
+    create: true
+    mode: "0644"
+
 - name: Add HashiCorp apt key (dearmored)
   ansible.builtin.shell: |
     set -o pipefail
