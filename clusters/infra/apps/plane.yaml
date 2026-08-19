@@ -17,12 +17,12 @@ spec:
   source:
     repoURL: https://helm.plane.so
     chart: plane-ce
-    targetRevision: 1.6.0
+    targetRevision: 1.6.2
     helm:
       valuesObject:
-        # Chart 1.6.0 declares appVersion 1.3.1 but its values default still
-        # says v1.2.0 — pin the declared appVersion explicitly.
-        planeVersion: v1.3.1
+        # Chart 1.6.2 declares appVersion 1.4.1 — pin it explicitly (chart
+        # values defaults lag behind the declared appVersion).
+        planeVersion: v1.4.1
         ingress:
           enabled: true
           appHost: plane.apps.froggyleonard.com
@@ -61,6 +61,13 @@ spec:
           pullPolicy: IfNotPresent
         api:
           pullPolicy: IfNotPresent
+          # Chart defaults (500m/1000Mi, 50m/50Mi) throttled the single-worker
+          # API (measured p90 3.4s); paired with GUNICORN_WORKERS=3 from the
+          # app-env Secret override.
+          cpuLimit: "1500m"
+          memoryLimit: 1536Mi
+          cpuRequest: "500m"
+          memoryRequest: 512Mi
         worker:
           pullPolicy: IfNotPresent
         beatworker:
