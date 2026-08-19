@@ -13,6 +13,11 @@ variable "ssh_public_keys" {
   type        = list(string)
   default = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKuCBorebkpFt5+CXsOy8/YTx8mre16ZD/ImqPiiRv+T lehnerfreddy@gmail.com",
+    # Orchestrator seat (dev-ws1, task 014). Affects cloud-init on rebuild only;
+    # existing nodes got this key via ansible/seat-key.yaml. Adding it changes
+    # user-data for every VM — expect a plan diff after merge; apply rides the
+    # next gated apply cycle.
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHnZfeKhSdaX1ceZX/jPdUkhfpTVE1evbj9z00GT99lc ops@dev-ws1 seat 2026-08-17",
   ]
 }
 
