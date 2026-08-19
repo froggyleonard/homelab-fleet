@@ -102,6 +102,14 @@ resource "proxmox_virtual_environment_vm" "template" {
   operating_system {
     type = "l26"
   }
+
+  # A template never boots, so the guest agent never reports these; without
+  # this the provider re-plans them as "known after apply" on every run and
+  # `plan -detailed-exitcode` can never return 0
+  # (bpg/terraform-provider-proxmox#1494).
+  lifecycle {
+    ignore_changes = [ipv4_addresses, ipv6_addresses, network_interface_names]
+  }
 }
 
 module "fleet" {
