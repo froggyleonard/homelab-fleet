@@ -4,6 +4,9 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
+# state-pull archives (task 014 baselines) — full state incl. real addressing;
+# they belong in the private orchestrator repo's task artifacts, never here
+tf-state-*.json
 .terraform/
 terraform.tfvars
 *.auto.tfvars
