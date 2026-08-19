@@ -107,6 +107,10 @@ resource "proxmox_virtual_environment_vm" "template" {
   # this the provider re-plans them as "known after apply" on every run and
   # `plan -detailed-exitcode` can never return 0
   # (bpg/terraform-provider-proxmox#1494).
+  # Terraform warns each entry is redundant ("has no effect" on computed
+  # attributes) — empirically false with this provider: same state, plan
+  # exits 2 without the block and 0 with it (verified 2026-08-19). The three
+  # warnings are expected; removing the block brings the phantom diff back.
   lifecycle {
     ignore_changes = [ipv4_addresses, ipv6_addresses, network_interface_names]
   }
