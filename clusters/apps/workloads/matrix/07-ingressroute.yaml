@@ -16,3 +16,13 @@ spec:
       services:
         - name: synapse
           port: 8008
+    # Full MAS surface on the auth host (public: auth.froggyleonard.com via
+    # tunnel host-translation). NOTE: the matrix-host compat split
+    # (login/logout/refresh → MAS) deliberately does NOT exist yet — it
+    # lands in the cutover PR once MAS is serving (a route to a
+    # zero-replica Service would blackhole logins).
+    - match: Host(`auth.apps.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: mas
+          port: 8080

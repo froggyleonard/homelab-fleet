@@ -8,5 +8,7 @@ resources:
   - 05-synapse.yaml
   - 06-backup.yaml
   - 07-ingressroute.yaml
+  - 08-mas.yaml
+  - 09-mas-db-init.yaml
 generators:
   - ksops-generator.yaml

@@ -79,15 +79,69 @@ spec:
       app.kubernetes.io/component: db
   policyTypes: [Ingress]
   ingress:
-    # synapse + the nightly backup job — nothing else reaches the DB.
+    # synapse, MAS, and the job pods (backup, db-init, syn2mas one-shots
+    # run with component=mas) — nothing else reaches the DB.
     - from:
         - podSelector:
             matchExpressions:
               - key: app.kubernetes.io/component
                 operator: In
-                values: [synapse, backup]
+                values: [synapse, backup, mas, db-init]
       ports:
         - port: 5432
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mas-ingress
+  namespace: matrix
+  labels:
+    app.kubernetes.io/name: matrix
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mas
+      app.kubernetes.io/component: mas
+  policyTypes: [Ingress]
+  ingress:
+    # Traefik (auth host + compat routes) and Synapse (token introspection).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: synapse
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mas-to-synapse
+  namespace: matrix
+  labels:
+    app.kubernetes.io/name: matrix
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: synapse
+      app.kubernetes.io/component: synapse
+  policyTypes: [Ingress]
+  ingress:
+    # MAS → Synapse admin API.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: mas
+      ports:
+        - port: 8008
           protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
@@ -121,6 +175,22 @@ spec:
               app.kubernetes.io/name: matrix-postgres
       ports:
         - port: 5432
+          protocol: TCP
+    # Intra-namespace: mas → synapse (admin API) and synapse → mas
+    # (token introspection).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: synapse
+      ports:
+        - port: 8008
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: mas
+      ports:
+        - port: 8080
           protocol: TCP
     - to:
         - ipBlock:

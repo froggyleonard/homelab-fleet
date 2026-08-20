@@ -1,0 +1,62 @@
+# Idempotent creation of the (deliberately blank) MAS role + database on the
+# matrix-postgres instance — syn2mas requires an empty target database.
+# The bootstrap user `synapse` is the instance superuser.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mas-db-init
+  namespace: matrix
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+  labels:
+    app.kubernetes.io/name: matrix-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      # component=db-init grants DB access via pg-ingress and keeps the pod
+      # out of the Service endpoints.
+      labels:
+        app.kubernetes.io/name: matrix-postgres
+        app.kubernetes.io/component: db-init
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-init
+          image: postgres:18.6
+          env:
+            - name: PGHOST
+              value: matrix-postgres.matrix.svc.cluster.local
+            - name: PGUSER
+              value: synapse
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: pg-password
+            - name: MAS_PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: matrix-secrets
+                  key: mas-pg-password
+          command:
+            - /bin/bash
+            - -ceu
+            - |
+              psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='mas'" | grep -q 1 \
+                || psql -v ON_ERROR_STOP=1 -c "CREATE ROLE mas LOGIN PASSWORD '${MAS_PG_PASSWORD}'"
+              psql -tAc "SELECT 1 FROM pg_database WHERE datname='mas'" | grep -q 1 \
+                || createdb -O mas mas
+              echo "mas role + database present"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
