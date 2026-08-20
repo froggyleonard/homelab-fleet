@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: matrix
+  # Prune=false: namespace deletion is the data-kill path (the StatefulSet's
+  # PVC is controller-created, not Argo-managed) — an Application revert must
+  # never cascade-delete it. Removing this app from git leaves the namespace
+  # OutOfSync by design; teardown is a deliberate manual act.
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/name: matrix
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd

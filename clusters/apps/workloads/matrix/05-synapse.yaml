@@ -1,0 +1,124 @@
+# Synapse homeserver — closed federation (client-only listener; the closure
+# itself lives in homeserver.yaml: explicit empty federation_domain_whitelist).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: synapse-media
+  namespace: matrix
+  # Media outlives any Application revert; deletion is a deliberate manual act.
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/name: synapse
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synapse
+  namespace: matrix
+  labels:
+    app.kubernetes.io/name: synapse
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  selector:
+    app.kubernetes.io/name: synapse
+    app.kubernetes.io/component: synapse
+  ports:
+    - name: http
+      port: 8008
+      targetPort: 8008
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synapse
+  namespace: matrix
+  labels:
+    app.kubernetes.io/name: synapse
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 1
+  # RWO media volume: a rolling update would deadlock on the attach.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: synapse
+      app.kubernetes.io/component: synapse
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: synapse
+        app.kubernetes.io/component: synapse
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      containers:
+        - name: synapse
+          image: ghcr.io/element-hq/synapse:v1.159.0
+          env:
+            - name: SYNAPSE_CONFIG_PATH
+              value: /data/homeserver.yaml
+          ports:
+            - name: http
+              containerPort: 8008
+          volumeMounts:
+            # emptyDir base keeps /data writable (pid file); config, signing
+            # key and log config are projected into it via subPath.
+            - name: data
+              mountPath: /data
+            - name: secrets
+              mountPath: /data/homeserver.yaml
+              subPath: homeserver.yaml
+              readOnly: true
+            - name: secrets
+              mountPath: /data/froggyleonard.com.signing.key
+              subPath: signing.key
+              readOnly: true
+            - name: log-config
+              mountPath: /data/log.config
+              subPath: log.config
+              readOnly: true
+            - name: media
+              mountPath: /media_store
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8008
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8008
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: matrix-secrets
+        - name: log-config
+          configMap:
+            name: matrix-log-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: synapse-media
