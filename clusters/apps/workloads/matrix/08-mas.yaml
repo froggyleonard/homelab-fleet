@@ -30,7 +30,7 @@ metadata:
     app.kubernetes.io/part-of: fleet
     app.kubernetes.io/managed-by: argocd
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: mas
