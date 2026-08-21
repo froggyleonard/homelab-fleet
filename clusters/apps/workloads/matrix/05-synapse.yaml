@@ -47,7 +47,7 @@ metadata:
     app.kubernetes.io/part-of: fleet
     app.kubernetes.io/managed-by: argocd
 spec:
-  replicas: 1
+  replicas: 0
   # RWO media volume: a rolling update would deadlock on the attach.
   strategy:
     type: Recreate
