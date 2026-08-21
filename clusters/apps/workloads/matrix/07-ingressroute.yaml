@@ -16,6 +16,16 @@ spec:
       services:
         - name: synapse
           port: 8008
+    # MAS compatibility layer: login/logout(+/all)/refresh across ALL client
+    # API versions route to MAS (anchored — nothing like /login-anything
+    # bleeds over). Explicit priority keeps this security-sensitive split
+    # independent of rule-length ordering. Lands only now that MAS serves.
+    - match: Host(`matrix.apps.froggyleonard.com`) && PathRegexp(`^/_matrix/client/[^/]+/(login|refresh|logout(/all)?)$`)
+      kind: Rule
+      priority: 100
+      services:
+        - name: mas
+          port: 8080
     # Full MAS surface on the account host (public: account.froggyleonard.com
     # via tunnel host-translation — matrix.org's own MAS convention).
     # `auth.*` is taken: Authentik's IngressRoute matches both auth.apps and
