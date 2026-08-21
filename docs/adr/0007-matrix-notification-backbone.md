@@ -64,3 +64,36 @@ Option 3: a **closed** Synapse homeserver on cluster-apps.
   gated act with an off-namespace backup copy first.
 - Opening federation later is config + well-known additions; my user ID
   never changes.
+
+## Addendum — auth is MAS + Authentik (2026-08-21)
+
+The original password-only design failed on first contact with the primary
+client: **Element X (26.08.2) refuses homeservers without OIDC-native auth**
+(it demands MAS; classic password login is desktop/web-only). Fix:
+**Matrix Authentication Service 1.23.0** now fronts all authentication, with
+**Authentik as its upstream OIDC provider** — one more moving part, but auth
+lands on the fleet's existing identity plane instead of a parallel password
+store.
+
+- MAS runs in the matrix namespace (own DB on the same dedicated PG
+  instance), public at **account.froggyleonard.com** via the same
+  tunnel-translation pattern as the homeserver (`auth.*` was unavailable —
+  Authentik already answers it). Synapse delegates via the stabilized
+  `matrix_authentication_service` block; the legacy
+  `/login|/refresh|/logout` client endpoints route to MAS's compatibility
+  layer.
+- Public entry is **matrix.froggyleonard.com** (Cloudflare tunnel translates
+  to the internal `matrix.apps.` host); the `.apps` names never had public
+  DNS, so the ADR's original hostname wording describes the internal host
+  only.
+- Existing accounts (me + the bot) were migrated with `syn2mas` —
+  same user IDs, imported password hashes retained as a fallback scheme.
+  My login is Authentik SSO end-to-end.
+- The **n8n bot authenticates with a MAS compatibility token** (device
+  `N8N`). MAS offers no expiry knob for these; posture is revoke + re-issue
+  on suspicion.
+- `registration_shared_secret` is removed from Synapse (this change) —
+  account administration now lives in MAS; the shared-secret registration
+  API is retired.
+- n8n's egress NetworkPolicy gained a matrix-namespace :8008 allow — the
+  bot posts in-cluster, not through the tunnel.
