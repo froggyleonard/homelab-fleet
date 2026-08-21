@@ -1,6 +1,7 @@
 # Default-deny; UI/webhooks in via Traefik only. Egress: DNS, shared PG,
 # Ollama API, Synapse client API (matrix ns :8008 — notification bot),
-# and 443/80 out — workflows call external APIs by design.
+# Traefik entrypoints (workflows call *.apps services via the cluster
+# ingress), and 443/80 out — workflows call external APIs by design.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -82,6 +83,17 @@ spec:
               kubernetes.io/metadata.name: matrix
       ports:
         - port: 8008
+          protocol: TCP
+    # *.apps hostnames resolve to the Traefik LB; post-DNAT the destination
+    # is the traefik pod (:8443 websecure), which the 0.0.0.0/0 ipBlock below
+    # never matches — Cilium CIDR rules apply to cluster-external traffic
+    # only. Without this rule, workflow calls to any *.apps URL time out.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 8443
           protocol: TCP
     - to:
         - ipBlock:
