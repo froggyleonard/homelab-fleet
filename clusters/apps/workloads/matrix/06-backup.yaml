@@ -1,4 +1,5 @@
-# Nightly logical backup of the dedicated Synapse DB, newest 7 retained
+# Nightly logical backup of BOTH databases on the dedicated instance
+# (synapse + mas), newest 7 each retained
 # (count-based, not -mtime: a stalled CronJob must never age out the last
 # good dump). Every dump is integrity-checked with pg_restore --list.
 # SCOPE: this PVC protects against DB corruption and accidental workload
@@ -62,8 +63,6 @@ spec:
                   value: matrix-postgres.matrix.svc.cluster.local
                 - name: PGUSER
                   value: synapse
-                - name: PGDATABASE
-                  value: synapse
                 - name: PGPASSWORD
                   valueFrom:
                     secretKeyRef:
@@ -75,11 +74,17 @@ spec:
                 - -o
                 - pipefail
                 - |
-                  out="/backups/matrix-$(date +%F-%H%M).dump"
-                  pg_dump -Fc -f "$out"
-                  pg_restore --list "$out" > /dev/null
-                  echo "wrote $out ($(du -h "$out" | cut -f1))"
-                  ls -1t /backups/matrix-*.dump | tail -n +8 | xargs -r rm --
+                  # Both authoritative DBs: synapse (rooms/events, legacy
+                  # "matrix-" prefix kept for retention continuity) and mas
+                  # (identity links, sessions, imported hashes).
+                  declare -A prefix=([synapse]=matrix [mas]=mas)
+                  for db in synapse mas; do
+                    out="/backups/${prefix[$db]}-$(date +%F-%H%M).dump"
+                    pg_dump -Fc -d "$db" -f "$out"
+                    pg_restore --list "$out" > /dev/null
+                    echo "wrote $out ($(du -h "$out" | cut -f1))"
+                    ls -1t /backups/${prefix[$db]}-*.dump | tail -n +8 | xargs -r rm --
+                  done
                   echo "retained:"; ls -lh /backups
               volumeMounts:
                 - name: backups

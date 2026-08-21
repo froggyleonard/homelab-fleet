@@ -16,3 +16,15 @@ spec:
       services:
         - name: synapse
           port: 8008
+    # Full MAS surface on the account host (public: account.froggyleonard.com
+    # via tunnel host-translation — matrix.org's own MAS convention).
+    # `auth.*` is taken: Authentik's IngressRoute matches both auth.apps and
+    # auth.froggyleonard.com. NOTE: the matrix-host compat split
+    # (login/logout/refresh → MAS) deliberately does NOT exist yet — it
+    # lands in the cutover PR once MAS is serving (a route to a
+    # zero-replica Service would blackhole logins).
+    - match: Host(`account.apps.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: mas
+          port: 8080

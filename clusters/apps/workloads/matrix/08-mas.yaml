@@ -1,0 +1,80 @@
+# Matrix Authentication Service (next-gen auth / MSC3861) — Element X
+# requires it; Authentik is the upstream IdP (ADR 0007 addendum).
+# DELIBERATELY replicas: 0 until the gated syn2mas cutover: the migration
+# requires a blank, unserved MAS database. The cutover PR raises it to 1.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mas
+  namespace: matrix
+  labels:
+    app.kubernetes.io/name: mas
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  selector:
+    app.kubernetes.io/name: mas
+    app.kubernetes.io/component: mas
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mas
+  namespace: matrix
+  labels:
+    app.kubernetes.io/name: mas
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mas
+      app.kubernetes.io/component: mas
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mas
+        app.kubernetes.io/component: mas
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      containers:
+        - name: mas
+          image: ghcr.io/element-hq/matrix-authentication-service:1.23.0@sha256:e82b2e4a5f9c7ca74096743349160795f5b5a792556fb85c6b5166a9180a5985
+          args: ["server", "--config", "/config/mas-config.yaml"]
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /config/mas-config.yaml
+              subPath: mas-config.yaml
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          secret:
+            secretName: matrix-secrets
