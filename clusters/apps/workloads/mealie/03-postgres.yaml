@@ -1,0 +1,115 @@
+# Dedicated PostgreSQL for Mealie — native-DB-per-app doctrine, never a
+# shared-PG tenant. Pinned to the current 17.x minor (17.11, 2026-08-13
+# security release): major 17 is what Mealie's own install docs use, so it is
+# the documented-safe major; PG 18 is undocumented upstream for Mealie.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mealie-postgres
+  namespace: mealie
+  labels:
+    app.kubernetes.io/name: mealie-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  selector:
+    app.kubernetes.io/name: mealie-postgres
+    app.kubernetes.io/component: db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mealie-postgres-hl
+  namespace: mealie
+  labels:
+    app.kubernetes.io/name: mealie-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: mealie-postgres
+    app.kubernetes.io/component: db
+  ports:
+    - name: postgres
+      port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mealie-postgres
+  namespace: mealie
+  labels:
+    app.kubernetes.io/name: mealie-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  serviceName: mealie-postgres-hl
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mealie-postgres
+      app.kubernetes.io/component: db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mealie-postgres
+        app.kubernetes.io/component: db
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17.11
+          env:
+            - name: POSTGRES_USER
+              value: mealie
+            - name: POSTGRES_DB
+              value: mealie
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mealie-secrets
+                  key: pg-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, mealie, -h, 127.0.0.1]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: [pg_isready, -U, mealie, -h, 127.0.0.1]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: mealie-postgres
+          app.kubernetes.io/part-of: fleet
+          app.kubernetes.io/managed-by: argocd
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 5Gi
