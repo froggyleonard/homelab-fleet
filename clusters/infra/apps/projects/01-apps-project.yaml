@@ -47,6 +47,8 @@ spec:
       namespace: plane
     - name: apps
       namespace: matrix
+    - name: apps
+      namespace: mealie
   # Cluster-scoped kinds the charts/configs actually ship: CRDs + RBAC +
   # webhooks (longhorn/traefik/cert-manager), StorageClasses + the static PG
   # PV, namespaces themselves, Cilium LB pools, longhorn's PriorityClass.
