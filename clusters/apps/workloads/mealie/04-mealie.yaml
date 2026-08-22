@@ -77,6 +77,11 @@ spec:
         app.kubernetes.io/part-of: fleet
         app.kubernetes.io/managed-by: argocd
     spec:
+      # Mealie never calls the Kubernetes API. Disabling the projected token
+      # removes a mount we do not need — and the mount that broke the first
+      # deploy: it lands at /var/run/secrets/... which resolves into /run,
+      # where an app secret mounted read-only made the mountpoint uncreatable.
+      automountServiceAccountToken: false
       securityContext:
         runAsUser: 911
         runAsGroup: 911
@@ -107,7 +112,7 @@ spec:
             # _FILE indirection is handled by the stock entrypoint and still
             # applies after the privilege drop.
             - name: POSTGRES_PASSWORD_FILE
-              value: /run/secrets/pg-password
+              value: /etc/mealie/secrets/pg-password
             - name: ALLOW_SIGNUP
               value: "false"
             # Local login is the path until OIDC is verified end to end;
@@ -122,8 +127,11 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
+            # App-specific path, deliberately NOT under /run or /var/run:
+            # Kubernetes owns /var/run/secrets for the serviceaccount
+            # projection and cannot create it beneath a read-only mount.
             - name: pg-secret
-              mountPath: /run/secrets
+              mountPath: /etc/mealie/secrets
               readOnly: true
           # /api/app/about is unauthenticated by design.
           startupProbe:
