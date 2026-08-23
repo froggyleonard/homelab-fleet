@@ -1,0 +1,22 @@
+# Single route: everything goes to the frontend, whose bundled nginx proxies
+# /api/, /uploads/, /health-data and /mcp back to the server on 3010. This is
+# the upstream chart's own topology — splitting the paths at Traefik would
+# duplicate (and eventually contradict) that nginx config.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: sparkyfitness
+  namespace: sparkyfitness
+  labels:
+    app.kubernetes.io/name: sparkyfitness
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`fitness.apps.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: sparkyfitness-frontend
+          port: 8080
