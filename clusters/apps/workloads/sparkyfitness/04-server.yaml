@@ -178,8 +178,15 @@ spec:
             # kubectl patch is reverted.
             - name: SPARKY_FITNESS_DISABLE_SIGNUP
               value: "false"
+            # Personal address — this repo is public, so it lives in the SOPS
+            # Secret rather than in plaintext here. secretKeyRef (not the
+            # _FILE loader) on purpose: the value is compared verbatim, and a
+            # file mount would risk a trailing newline breaking the match.
             - name: SPARKY_FITNESS_ADMIN_EMAIL
-              value: lehnerfreddy@gmail.com
+              valueFrom:
+                secretKeyRef:
+                  name: sparkyfitness-secrets
+                  key: admin-email
             - name: SPARKY_FITNESS_LOG_LEVEL
               value: INFO
             # Fail-safe: keeps local login available until the batched OIDC

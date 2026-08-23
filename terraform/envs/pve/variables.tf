@@ -12,7 +12,7 @@ variable "ssh_public_keys" {
   description = "SSH public keys injected into every fleet VM via cloud-init"
   type        = list(string)
   default = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKuCBorebkpFt5+CXsOy8/YTx8mre16ZD/ImqPiiRv+T lehnerfreddy@gmail.com",
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKuCBorebkpFt5+CXsOy8/YTx8mre16ZD/ImqPiiRv+T personal-laptop",
     # Orchestrator seat (dev-ws1, task 014). Affects cloud-init on rebuild only;
     # existing nodes got this key via ansible/seat-key.yaml. Adding it changes
     # user-data for every VM — expect a plan diff after merge; apply rides the
