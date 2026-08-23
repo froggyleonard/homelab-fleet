@@ -11,7 +11,14 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`sure.apps.froggyleonard.com`)
+    # Both names: the internal one for LAN/Tailscale, the public one for the
+    # Cloudflare tunnel. The tunnel passes the original Host through (its
+    # httpHostHeader override is cleared), so Rails builds absolute URLs from
+    # the name the client actually used. With the override in place every
+    # redirect pointed at the internal host, which does not resolve off-LAN.
+    # Origin TLS is unaffected: originServerName stays sure.apps.froggyleonard.com
+    # and matches the wildcard cert. Same arrangement as authentik.
+    - match: Host(`sure.apps.froggyleonard.com`) || Host(`sure.froggyleonard.com`)
       kind: Rule
       services:
         - name: sure
