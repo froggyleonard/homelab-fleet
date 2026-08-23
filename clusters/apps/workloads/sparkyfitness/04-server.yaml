@@ -163,8 +163,21 @@ spec:
               value: production
             - name: TZ
               value: America/New_York
+            # TEMPORARY — open so the first account can be created. The
+            # instance has no public Cloudflare hostname yet, so it is
+            # reachable only from the LAN/tailnet; nothing can reach this
+            # signup form from the internet.
+            #
+            # SPARKY_FITNESS_ADMIN_EMAIL below only auto-grants admin to that
+            # address when it registers — it does not create the account, so
+            # with signup closed and OIDC not yet configured there was no way
+            # in at all.
+            #
+            # CLOSE THIS AGAIN (back to "true") BEFORE the public hostname is
+            # created. Must be a PR: the Application sets selfHeal, so a
+            # kubectl patch is reverted.
             - name: SPARKY_FITNESS_DISABLE_SIGNUP
-              value: "true"
+              value: "false"
             - name: SPARKY_FITNESS_ADMIN_EMAIL
               value: lehnerfreddy@gmail.com
             - name: SPARKY_FITNESS_LOG_LEVEL
