@@ -1,0 +1,243 @@
+# SparkyFitness server (Node) — the API and the only component that touches
+# the database, external nutrition providers, or (later) Authentik.
+#
+# Two upstream behaviours drive this manifest:
+#   1. The image declares no USER and therefore runs as root by default. UID
+#      1000 is set explicitly here; the upstream chart uses the same value.
+#   2. preflightChecks.ts exits 1 if any of its 8 mandatory vars are missing,
+#      and the server CREATE ROLEs its own limited runtime user on first boot
+#      using the owner connection — so there is no init SQL, but the owner
+#      must have CREATEROLE (it is the instance superuser, so it does).
+#
+# BETTER_AUTH_SECRET and SPARKY_FITNESS_DB_PORT are set deliberately even
+# though neither is enforced: a missing auth secret is silently regenerated
+# every boot (logging everyone out and breaking TOTP), and the app-user
+# connection pool has no default port, unlike the owner pool.
+#
+# Secrets mount at /etc/sparkyfitness/secrets — an app-specific path, never
+# under /run or /var/run, which is what broke the Mealie deploy (task 020
+# failure 1). The generic _FILE loader reads any FOO_FILE into FOO.
+#
+# OIDC env is absent by design: the Authentik application does not exist yet
+# and OIDC is being configured for all apps in one later pass (PLAN.md
+# Amendment A2). FORCE_EMAIL_LOGIN keeps local login working until then.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sparkyfitness-uploads
+  namespace: sparkyfitness
+  labels:
+    app.kubernetes.io/name: sparkyfitness
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sparkyfitness-backup
+  namespace: sparkyfitness
+  labels:
+    app.kubernetes.io/name: sparkyfitness
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sparkyfitness-server
+  namespace: sparkyfitness
+  labels:
+    app.kubernetes.io/name: sparkyfitness
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  selector:
+    app.kubernetes.io/name: sparkyfitness
+    app.kubernetes.io/component: server
+  ports:
+    - name: http
+      port: 3010
+      targetPort: 3010
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sparkyfitness-server
+  namespace: sparkyfitness
+  labels:
+    app.kubernetes.io/name: sparkyfitness
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 1
+  # RWO volumes + schema migrations at boot: never two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sparkyfitness
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sparkyfitness
+        app.kubernetes.io/component: server
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The server exits 1 when the DB is unreachable, so without this the
+        # first deploy crashloops until Postgres finishes initdb. Waiting here
+        # keeps a genuine failure distinguishable from a cold start.
+        - name: wait-for-db
+          image: postgres:18.6
+          command:
+            - sh
+            - -c
+            - until pg_isready -h sparkyfitness-postgres -p 5432 -U sparkyfitness; do echo "waiting for postgres"; sleep 3; done
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: server
+          image: ghcr.io/codewithcj/sparkyfitness-server:v1.6.2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: SPARKY_FITNESS_DB_HOST
+              value: sparkyfitness-postgres
+            # Explicit: the app-user pool has no port fallback.
+            - name: SPARKY_FITNESS_DB_PORT
+              value: "5432"
+            - name: SPARKY_FITNESS_DB_NAME
+              value: sparkyfitness
+            - name: SPARKY_FITNESS_DB_USER
+              value: sparkyfitness
+            - name: SPARKY_FITNESS_DB_PASSWORD_FILE
+              value: /etc/sparkyfitness/secrets/pg-password
+            - name: SPARKY_FITNESS_APP_DB_USER
+              value: sparkyfitness_app
+            - name: SPARKY_FITNESS_APP_DB_PASSWORD_FILE
+              value: /etc/sparkyfitness/secrets/app-db-password
+            - name: SPARKY_FITNESS_API_ENCRYPTION_KEY_FILE
+              value: /etc/sparkyfitness/secrets/api-encryption-key
+            - name: BETTER_AUTH_SECRET_FILE
+              value: /etc/sparkyfitness/secrets/better-auth-secret
+            - name: SPARKY_FITNESS_FRONTEND_URL
+              value: https://fitness.apps.froggyleonard.com
+            - name: SPARKY_FITNESS_SERVER_PORT
+              value: "3010"
+            - name: NODE_ENV
+              value: production
+            - name: TZ
+              value: America/New_York
+            - name: SPARKY_FITNESS_DISABLE_SIGNUP
+              value: "true"
+            - name: SPARKY_FITNESS_ADMIN_EMAIL
+              value: lehnerfreddy@gmail.com
+            - name: SPARKY_FITNESS_LOG_LEVEL
+              value: INFO
+            # Fail-safe: keeps local login available until the batched OIDC
+            # pass proves Authentik works (Amendment A2).
+            - name: SPARKY_FITNESS_FORCE_EMAIL_LOGIN
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 3010
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/SparkyFitnessServer/uploads
+            - name: backup
+              mountPath: /app/SparkyFitnessServer/backup
+            - name: temp-uploads
+              mountPath: /app/SparkyFitnessServer/temp_uploads
+            - name: tmp
+              mountPath: /tmp
+            - name: secrets
+              mountPath: /etc/sparkyfitness/secrets
+              readOnly: true
+          # Migrations run at boot; the startup probe gives them room without
+          # letting a genuinely wedged pod sit forever.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 3010
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3010
+            periodSeconds: 5
+            timeoutSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3010
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: sparkyfitness-uploads
+        - name: backup
+          persistentVolumeClaim:
+            claimName: sparkyfitness-backup
+        # Restore staging, not durable state.
+        - name: temp-uploads
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: sparkyfitness-secrets
+            defaultMode: 0440
+            items:
+              - key: pg-password
+                path: pg-password
+              - key: app-db-password
+                path: app-db-password
+              - key: api-encryption-key
+                path: api-encryption-key
+              - key: better-auth-secret
+                path: better-auth-secret
