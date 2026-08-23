@@ -36,8 +36,13 @@ spec:
               value: production
             - name: SELF_HOSTED
               value: "true"
+            # Public name on purpose. APP_DOMAIN feeds only
+            # action_mailer.default_url_options and the WebAuthn RP-ID fallback,
+            # so emailed links (password reset, confirmation) have to use the
+            # name that resolves off-LAN. Request-driven redirects come from the
+            # inbound Host, not from here.
             - name: APP_DOMAIN
-              value: sure.apps.froggyleonard.com
+              value: sure.froggyleonard.com
             - name: REDIS_URL
               value: redis://redis.sure.svc.cluster.local:6379/0
             - name: EXCHANGE_RATE_PROVIDER

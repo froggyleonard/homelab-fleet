@@ -34,8 +34,10 @@ spec:
               value: production
             - name: SELF_HOSTED
               value: "true"
+            # Public name — see the note in 04-web.yaml. The worker sends the
+            # mail, so it needs the same value or emailed links point inward.
             - name: APP_DOMAIN
-              value: sure.apps.froggyleonard.com
+              value: sure.froggyleonard.com
             - name: REDIS_URL
               value: redis://redis.sure.svc.cluster.local:6379/0
             - name: EXCHANGE_RATE_PROVIDER
