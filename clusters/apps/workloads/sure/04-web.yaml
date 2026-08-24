@@ -69,6 +69,15 @@ spec:
             #
             # ALLOWED_OIDC_DOMAINS is deliberately unset: it only restricts JIT
             # creation, and link_only disables JIT outright.
+            # Sure loads SSO providers from YAML by default in production.
+            # The provider record configured at /admin/sso_providers is simply
+            # never read without this — ProviderLoader falls back to YAML,
+            # finds auth.yml's `openid_connect` entry with no OIDC_* env set,
+            # and logs "Skipping OIDC provider ... missing required
+            # configuration" followed by "No SSO providers enabled". The DB row
+            # can be present, correct and enabled the whole time.
+            - name: AUTH_PROVIDERS_SOURCE
+              value: db
             - name: AUTH_JIT_MODE
               value: link_only
             # Break-glass. Once AUTH_LOCAL_LOGIN_ENABLED goes false, super
