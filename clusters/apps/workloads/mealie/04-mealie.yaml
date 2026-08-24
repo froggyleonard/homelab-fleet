@@ -13,10 +13,19 @@
 # target uid, in which case it skips the chown/gosu path entirely. fsGroup
 # handles volume permissions instead.
 #
-# OIDC is deliberately absent here: the Authentik application (and therefore
-# oidc-client-secret) does not exist yet, and referencing a missing key would
-# stop the pod from booting. It lands in a follow-up PR — see task 020
-# PLAN.md Amendment A1.
+# OIDC (Authentik) is wired below. OIDC_CONFIGURATION_URL is the FULL
+# discovery URL, not the issuer: Mealie hands it straight to authlib as
+# server_metadata_url, so the .well-known suffix is required. (SparkyFitness
+# takes the issuer alone — same concept, opposite convention. Do not copy one
+# app's value shape to the other.)
+#
+# OIDC_SIGNUP_ENABLED is false on purpose. Its upstream default is True, which
+# would create a NEW Mealie user whenever the email claim fails to match an
+# existing account, instead of failing the login. Link-only until every real
+# account has been linked once.
+#
+# ALLOW_PASSWORD_LOGIN stays true until OIDC is proven end to end; a later PR
+# turns it off (frozen plan M1 step 7).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -119,6 +128,28 @@ spec:
             # disabled by a later PR (frozen plan M1 step 7).
             - name: ALLOW_PASSWORD_LOGIN
               value: "true"
+            - name: OIDC_AUTH_ENABLED
+              value: "true"
+            # Link-only. See the header note before changing this.
+            - name: OIDC_SIGNUP_ENABLED
+              value: "false"
+            # Full discovery URL (server_metadata_url), NOT the bare issuer.
+            - name: OIDC_CONFIGURATION_URL
+              value: https://auth.froggyleonard.com/application/o/mealie/.well-known/openid-configuration
+            - name: OIDC_CLIENT_ID
+              value: Nkzm5ceIYxPVbqaIolapxTJKsFtSueXn2Q7dasKn
+            # The stock entrypoint expands *_FILE for OIDC_CLIENT_SECRET via
+            # $(<file), which strips the trailing newline — so the mounted
+            # secret is safe to use here, same as pg-password.
+            - name: OIDC_CLIENT_SECRET_FILE
+              value: /etc/mealie/secrets/oidc-client-secret
+            - name: OIDC_PROVIDER_NAME
+              value: Authentik
+            # Authentik signs RS256 because the provider has a signing key
+            # selected; with no key it would fall back to HS256 and this
+            # would need to change to match.
+            - name: OIDC_SIGNING_ALGORITHM
+              value: RS256
             - name: UVICORN_WORKERS
               value: "1"
           ports:
