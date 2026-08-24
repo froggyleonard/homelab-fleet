@@ -51,6 +51,65 @@ spec:
               value: yahoo_finance
             - name: AI_DEBUG_MODE
               value: "false"
+            # --- Authentik SSO guard rails (task 020, Amendment A4) ---
+            # The OIDC PROVIDER is configured in-app at /admin/sso_providers and
+            # lives in the database, so no client secret belongs here. These
+            # three are different: AuthConfig reads them from
+            # Rails.configuration.x.auth.*, which config/initializers/auth.rb
+            # populates at BOOT from config/auth.yml (ERB over ENV.fetch). They
+            # cannot be set in the admin UI, and changing them restarts the pod.
+            #
+            # link_only is the important one. The upstream default,
+            # create_and_link, creates a new user AND A NEW FAMILY when the SSO
+            # email matches no existing user — the documented duplicate-family
+            # failure. link_only turns that into a clean rejection at the login
+            # page instead. It must be in force BEFORE any SSO login is
+            # possible, which is why this lands before the provider is
+            # configured in-app rather than alongside it.
+            #
+            # ALLOWED_OIDC_DOMAINS is deliberately unset: it only restricts JIT
+            # creation, and link_only disables JIT outright.
+            - name: AUTH_JIT_MODE
+              value: link_only
+            # Break-glass. Once AUTH_LOCAL_LOGIN_ENABLED goes false, super
+            # admins can still sign in with a password while everyone else is
+            # SSO-only. Set now so that later change is one line and cannot
+            # lock us out of the finance app.
+            - name: AUTH_LOCAL_ADMIN_OVERRIDE_ENABLED
+              value: "true"
+            # Stays true until SSO is proven end to end.
+            - name: AUTH_LOCAL_LOGIN_ENABLED
+              value: "true"
+            # --- Authentik SSO guard rails (task 020, Amendment A4) ---
+            # The OIDC PROVIDER itself is configured in-app at
+            # /admin/sso_providers and lives in the database, so no client
+            # secret is needed here. These four are different: AuthConfig reads
+            # them from Rails.configuration.x.auth.*, which
+            # config/initializers/auth.rb populates at BOOT from
+            # config/auth.yml (ERB over ENV.fetch). They cannot be set in the
+            # admin UI, and changing them restarts the pod.
+            #
+            # link_only is the important one. The upstream default,
+            # create_and_link, creates a new user AND A NEW FAMILY when the
+            # SSO email matches no existing user — which is the documented
+            # duplicate-family failure. link_only turns that into a clean
+            # rejection at the login page instead. It must be in effect BEFORE
+            # the first SSO login, which is why this PR lands before the
+            # provider is configured in-app.
+            #
+            # ALLOWED_OIDC_DOMAINS is deliberately unset: it only restricts JIT
+            # creation, and link_only disables JIT outright.
+            - name: AUTH_JIT_MODE
+              value: link_only
+            # Break-glass: once AUTH_LOCAL_LOGIN_ENABLED goes false, super
+            # admins can still sign in with a password while everyone else is
+            # SSO-only. Set now so that later change is one line and cannot
+            # lock us out of the finance app.
+            - name: AUTH_LOCAL_ADMIN_OVERRIDE_ENABLED
+              value: "true"
+            # Stays true until SSO is proven end to end.
+            - name: AUTH_LOCAL_LOGIN_ENABLED
+              value: "true"
           readinessProbe:
             httpGet:
               path: /up
