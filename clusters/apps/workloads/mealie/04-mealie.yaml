@@ -199,6 +199,14 @@ spec:
           secret:
             secretName: mealie-secrets
             defaultMode: 0440
+            # This projection is an explicit allowlist. A key added to the
+            # Secret is NOT visible in the pod until it is listed here — the
+            # file is simply absent, the *_FILE read yields an empty string,
+            # and the failure surfaces far away (OIDC gave "invalid_client"
+            # from the token exchange). Add the key here whenever you add one
+            # to 02-secrets.sops.yaml.
             items:
               - key: pg-password
                 path: pg-password
+              - key: oidc-client-secret
+                path: oidc-client-secret
