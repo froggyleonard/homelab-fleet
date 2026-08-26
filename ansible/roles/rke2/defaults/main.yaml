@@ -2,7 +2,7 @@
 # renovate: datasource=github-releases depName=rancher/rke2 versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\+rke2r(?<build>\d+)$
 rke2_version: v1.35.6+rke2r1
 # renovate: datasource=github-releases depName=kube-vip/kube-vip
-rke2_kube_vip_version: v1.2.1
+rke2_kube_vip_version: v1.2.3
 
 # Inventory group vars (rke2_api_vip) override these defaults.
 # net_prefix comes from inventory group_vars/all/network.yaml (gitignored).
