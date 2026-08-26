@@ -12,7 +12,7 @@ jobs:
   gitleaks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
@@ -22,7 +22,7 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v3
         with:
           # renovate: datasource=github-releases depName=hashicorp/terraform
@@ -41,7 +41,7 @@ jobs:
   ansible-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ansible/ansible-lint@v25
         with:
           working_directory: ansible
@@ -53,7 +53,7 @@ jobs:
       # renovate: datasource=github-releases depName=yannh/kubeconform
       KUBECONFORM_VERSION: v0.6.7
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: kubeconform
         run: |
           curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
@@ -68,7 +68,7 @@ jobs:
     # Fail if any yaml under clusters/ contains an unencrypted Secret manifest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: no plaintext Secrets
         run: |
           bad=$(grep -rlE '^kind: *Secret' clusters/ --include='*.yaml' --include='*.yml' \
@@ -90,7 +90,7 @@ jobs:
     # check.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: does this change touch the coupled pins?
