@@ -70,7 +70,10 @@
     {
       "description": "MinIO date-stamped tags need custom versioning",
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["minio/minio", "minio/mc"],
+      "matchPackageNames": [
+        "minio/minio", "minio/mc",
+        "docker.io/minio/minio", "docker.io/minio/mc"
+      ],
       "versioning": "regex:^RELEASE\\.(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})T.*$"
     },
     {
@@ -89,15 +92,22 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Tier 2 — databases: a bump is a restart",
+      "description": "Tier 2 — databases: a bump is a restart. matchPackageNames is an exact match, so every spelling a manifest may use is listed — the dry run caught cloudflared escaping this gate because that manifest writes the registry prefix and the rule did not",
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["postgres", "redis"],
+      "matchPackageNames": [
+        "postgres", "redis",
+        "docker.io/postgres", "docker.io/redis",
+        "docker.io/library/postgres", "docker.io/library/redis"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "Tier 2 — GitOps engine and edge: ksops decrypts everything, cloudflared is the only ingress",
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["viaductoss/ksops", "cloudflare/cloudflared"],
+      "matchPackageNames": [
+        "viaductoss/ksops", "cloudflare/cloudflared",
+        "docker.io/viaductoss/ksops", "docker.io/cloudflare/cloudflared"
+      ],
       "dependencyDashboardApproval": true
     },
     {
