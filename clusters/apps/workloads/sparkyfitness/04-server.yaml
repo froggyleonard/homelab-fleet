@@ -155,7 +155,15 @@ spec:
               value: /etc/sparkyfitness/secrets/api-encryption-key
             - name: BETTER_AUTH_SECRET_FILE
               value: /etc/sparkyfitness/secrets/better-auth-secret
+            # PUBLIC name is primary: it is what builds absolute URLs and the
+            # better-auth baseURL, so links must not inherit the internal-only
+            # name (the task-022 lesson). Both callback URIs are already
+            # registered on the authentik sparkyfitness-oidc provider.
             - name: SPARKY_FITNESS_FRONTEND_URL
+              value: https://fitness.froggyleonard.com
+            # Keeps LAN browsing working: getBaseTrustedOrigins() unions this
+            # with FRONTEND_URL, and better-auth rejects any origin not listed.
+            - name: SPARKY_FITNESS_EXTRA_TRUSTED_ORIGINS
               value: https://fitness.apps.froggyleonard.com
             - name: SPARKY_FITNESS_SERVER_PORT
               value: "3010"
@@ -163,19 +171,17 @@ spec:
               value: production
             - name: TZ
               value: America/New_York
-            # TEMPORARY — open so the first account can be created. The
-            # instance has no public Cloudflare hostname yet, so it is
-            # reachable only from the LAN/tailnet; nothing can reach this
-            # signup form from the internet.
+            # Registration stays OPEN by design. The earlier "close this
+            # again before the public hostname" note is withdrawn: with local
+            # email/password login off (below), the only way to register is
+            # through Authentik, so the gate is the Authentik policy/group
+            # binding on the SparkyFitness application — not this flag.
+            #
+            # An Authentik application with NO policy binding is reachable by
+            # every directory user. The binding is the access control here.
             #
             # SPARKY_FITNESS_ADMIN_EMAIL below only auto-grants admin to that
-            # address when it registers — it does not create the account, so
-            # with signup closed and OIDC not yet configured there was no way
-            # in at all.
-            #
-            # CLOSE THIS AGAIN (back to "true") BEFORE the public hostname is
-            # created. Must be a PR: the Application sets selfHeal, so a
-            # kubectl patch is reverted.
+            # address when it registers — it does not create the account.
             - name: SPARKY_FITNESS_DISABLE_SIGNUP
               value: "false"
             # Personal address — this repo is public, so it lives in the SOPS
@@ -189,9 +195,18 @@ spec:
                   key: admin-email
             - name: SPARKY_FITNESS_LOG_LEVEL
               value: INFO
-            # Fail-safe: keeps local login available until the batched OIDC
-            # pass proves Authentik works (Amendment A2).
-            - name: SPARKY_FITNESS_FORCE_EMAIL_LOGIN
+            # Local email/password login is OFF — Authentik is the only path.
+            #
+            # SPARKY_FITNESS_FORCE_EMAIL_LOGIN is REMOVED, not set to "false",
+            # and the two flags must never both be set. They are read by
+            # different code paths in v1.6.2 and disagree:
+            #   auth.ts:221  emailAndPassword.enabled =
+            #                  DISABLE_EMAIL_LOGIN !== 'true'   <- backend only
+            #   globalSettingsRepository.ts:21  if (forceEmailLogin) ->
+            #                  enable_email_password_login = true  <- FORCE wins
+            # So FORCE=true + DISABLE=true renders the login form via
+            # /api/auth/settings while the backend rejects every credential.
+            - name: SPARKY_FITNESS_DISABLE_EMAIL_LOGIN
               value: "true"
           ports:
             - name: http

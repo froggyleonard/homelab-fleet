@@ -15,7 +15,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    - match: Host(`fitness.apps.froggyleonard.com`)
+    - match: Host(`fitness.apps.froggyleonard.com`) || Host(`fitness.froggyleonard.com`)
       kind: Rule
       services:
         - name: sparkyfitness-frontend
