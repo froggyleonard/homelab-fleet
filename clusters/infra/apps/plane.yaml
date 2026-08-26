@@ -22,6 +22,7 @@ spec:
       valuesObject:
         # Chart 1.6.2 declares appVersion 1.4.1 — pin it explicitly (chart
         # values defaults lag behind the declared appVersion).
+        # renovate: datasource=github-releases depName=makeplane/plane
         planeVersion: v1.4.1
         ingress:
           enabled: true
@@ -48,6 +49,7 @@ spec:
           local_setup: true
           # Chart default is minio:latest — pin per fleet convention.
           image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+          # renovate: datasource=docker depName=minio/mc
           image_mc: minio/mc:RELEASE.2025-08-13T08-35-41Z
           storageClass: longhorn
           volumeSize: 10Gi
