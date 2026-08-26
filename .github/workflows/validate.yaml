@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
+          # renovate: datasource=github-releases depName=hashicorp/terraform
           terraform_version: "1.9.8"
       - name: fmt
         run: terraform -chdir=terraform fmt -check -recursive
@@ -48,11 +49,14 @@ jobs:
 
   kubeconform:
     runs-on: ubuntu-latest
+    env:
+      # renovate: datasource=github-releases depName=yannh/kubeconform
+      KUBECONFORM_VERSION: v0.6.7
     steps:
       - uses: actions/checkout@v4
       - name: kubeconform
         run: |
-          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz \
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
             | tar xz -C /usr/local/bin kubeconform
           kubeconform -strict -summary \
             -ignore-missing-schemas \
@@ -72,3 +76,36 @@ jobs:
           if [ -n "$bad" ]; then
             echo "Plaintext Secret manifests found:"; echo "$bad"; exit 1
           fi
+
+  pin-guard:
+    # Checksum-coupled ansible pins must move together: each *_version must
+    # match its sibling *_sha256 against the upstream release asset for that
+    # exact version. A version-only bump (e.g. an unattended Renovate PR) fails
+    # here rather than merging a role that cannot download its tools.
+    #
+    # Path-scoped on purpose. The job always runs and always reports its
+    # required status, but it only contacts upstream when the coupled defaults
+    # file is actually in the diff — otherwise an upstream outage, a rate limit
+    # or a renamed asset would block every unrelated fleet PR behind a required
+    # check.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: does this change touch the coupled pins?
+        id: scope
+        run: |
+          f=ansible/roles/dev_workstation/defaults/main.yml
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "verify=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only \
+                 "origin/${{ github.base_ref }}...HEAD" -- "$f" | grep -q .; then
+            echo "verify=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "verify=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$f unchanged — skipping upstream checksum verification"
+          fi
+      - name: verify sops + uv version/checksum pairs
+        if: steps.scope.outputs.verify == 'true'
+        run: ./scripts/pin-guard.sh
