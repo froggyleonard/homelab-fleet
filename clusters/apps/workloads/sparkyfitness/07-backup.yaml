@@ -1,0 +1,147 @@
+# Nightly logical backup of the SparkyFitness database (task 025).
+#
+# SCOPE: this PVC is the OPERATIONAL restore layer — it covers DB corruption and
+# bad migrations, is fast, and is same-namespace. It is NOT the disaster layer:
+# it lives in this namespace and dies with it. The disaster layer is the seat's
+# nightly `kubectl exec` pull, which never reads this PVC and therefore survives
+# total Longhorn loss (task 025 PLAN, layer 2).
+#
+# GLOBALS: `pg_dump -Fc` does NOT capture role definitions. This instance has TWO
+# login roles — `sparkyfitness` and `sparkyfitness_app`, the limited runtime role
+# the server creates on first boot (see 03-postgres.yaml). A `-Fc` dump restored
+# into a fresh instance yields grants referencing `sparkyfitness_app`, which will
+# not exist, and the application cannot authenticate. This is the concrete defect
+# task 025 found. So every run also writes `pg_dumpall --globals-only`. Restore order is globals first
+# (with psql), then the database (with pg_restore) — never pg_restore on globals,
+# which is plain SQL.
+#
+# PUBLICATION: each run writes into runs/<ts>/ and is published by one atomic
+# symlink swap only after the COMPLETE set validates. Renaming files one at a
+# time would leave a mixed-generation set if a run died halfway, and a reader
+# could not tell. Retention is count-based, never -mtime: a stalled CronJob must
+# never age out the last good set.
+#
+# The dump and globals files carry data and SCRAM password hashes respectively —
+# treat both as secret material.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sparkyfitness-pg-backups
+  namespace: sparkyfitness
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/name: sparkyfitness-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sparkyfitness-pg-backup
+  namespace: sparkyfitness
+  labels:
+    app.kubernetes.io/name: sparkyfitness-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  schedule: "50 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          # component=backup grants this pod DB access via pg-ingress and keeps
+          # it out of the Service endpoints.
+          labels:
+            app.kubernetes.io/name: sparkyfitness-postgres
+            app.kubernetes.io/component: backup
+            app.kubernetes.io/part-of: fleet
+            app.kubernetes.io/managed-by: argocd
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              # Matches the deployed server (18.6). v1.6.1 dropped support for
+              # older majors, so 18.x is required.
+              image: postgres:18.6
+              env:
+                - name: PGHOST
+                  value: sparkyfitness-postgres.sparkyfitness.svc.cluster.local
+                - name: PGUSER
+                  value: sparkyfitness
+                - name: PGDATABASE
+                  value: sparkyfitness
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: sparkyfitness-secrets
+                      key: pg-password
+              command:
+                - /bin/bash
+                - -ceu
+                - -o
+                - pipefail
+                - |
+                  ts="$(date -u +%Y-%m-%dT%H%M%SZ)"
+                  run="/backups/runs/$ts"
+                  mkdir -p "$run"
+                  # Nothing outside $run changes until the whole set validates.
+                  trap 'rm -rf "$run"' ERR
+
+                  pg_dump -Fc -f "$run/sparkyfitness.dump"
+                  pg_restore --list "$run/sparkyfitness.dump" > /dev/null
+
+                  pg_dumpall --globals-only -f "$run/sparkyfitness-globals.sql"
+                  test -s "$run/sparkyfitness-globals.sql"
+                  # Plain SQL: pg_restore --list does not apply. Assert instead
+                  # that every login role on the source is created by the file.
+                  # Names only — the file also holds password hashes.
+                  for role in $(psql -Atc \
+                      "select rolname from pg_roles where rolcanlogin order by 1"); do
+                    grep -q "^CREATE ROLE ${role};" "$run/sparkyfitness-globals.sql" \
+                      || { echo "FAIL: globals missing CREATE ROLE ${role}"; exit 1; }
+                  done
+
+                  { echo "run=$ts"; echo "sparkyfitness.dump"; echo "sparkyfitness-globals.sql"; } \
+                    > "$run/MANIFEST"
+                  ls -l "$run" | tail -n +2 >> "$run/MANIFEST"
+
+                  # Atomic promotion: rename(2) over an existing symlink, so a
+                  # reader sees the whole old run or the whole new one.
+                  ln -sfn "runs/$ts" /backups/.current.tmp
+                  mv -T /backups/.current.tmp /backups/current
+                  # Published. From here the run must never be deleted, so the
+                  # cleanup trap is disarmed: a retention error below is worth
+                  # reporting but must not destroy the backup just taken.
+                  trap - ERR
+
+                  # Count-based retention: keep the newest 7 run directories.
+                  # `find`, not `ls`: a glob with no match makes ls exit 2, which
+                  # under pipefail+set -e aborts the job.
+                  find /backups/runs -mindepth 1 -maxdepth 1 -type d \
+                    | sort | head -n -7 | xargs -r rm -rf --
+                  echo "published $ts"; ls -lh "$run"
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: sparkyfitness-pg-backups

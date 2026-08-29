@@ -1,7 +1,21 @@
 # Nightly logical backup of BOTH databases on the dedicated instance
-# (synapse + mas), newest 7 each retained
+# (synapse + mas), newest 7 runs retained
 # (count-based, not -mtime: a stalled CronJob must never age out the last
 # good dump). Every dump is integrity-checked with pg_restore --list.
+#
+# GLOBALS (task 025): `pg_dump -Fc` does NOT capture role definitions. This
+# instance has two login roles, `synapse` and `mas`. Restoring these dumps into
+# a fresh instance produced grants referencing roles that did not exist — the
+# databases were unrestorable in the disaster case this job exists for. Every
+# run now also writes `pg_dumpall --globals-only`. Restore order is globals
+# first (with psql), then the databases (with pg_restore) — never pg_restore on
+# globals, which is plain SQL. The globals file carries SCRAM password hashes:
+# treat it as secret material.
+#
+# PUBLICATION (task 025): each run writes into runs/<ts>/ and is published by one
+# atomic symlink swap only after the COMPLETE set validates. Renaming files one
+# at a time left a mixed-generation set if a run died halfway, and a reader could
+# not tell which dump belonged with which globals.
 # SCOPE: this PVC protects against DB corruption and accidental workload
 # pruning. It is NOT a disaster backup — it lives in this namespace and dies
 # with it. Any gated teardown first copies the newest dump off-namespace
@@ -74,18 +88,61 @@ spec:
                 - -o
                 - pipefail
                 - |
+                  ts="$(date -u +%Y-%m-%dT%H%M%SZ)"
+                  run="/backups/runs/$ts"
+                  mkdir -p "$run"
+                  # Nothing outside $run changes until the whole set validates.
+                  trap 'rm -rf "$run"' ERR
+
                   # Both authoritative DBs: synapse (rooms/events, legacy
                   # "matrix-" prefix kept for retention continuity) and mas
                   # (identity links, sessions, imported hashes).
                   declare -A prefix=([synapse]=matrix [mas]=mas)
                   for db in synapse mas; do
-                    out="/backups/${prefix[$db]}-$(date +%F-%H%M).dump"
+                    out="$run/${prefix[$db]}.dump"
                     pg_dump -Fc -d "$db" -f "$out"
                     pg_restore --list "$out" > /dev/null
                     echo "wrote $out ($(du -h "$out" | cut -f1))"
-                    ls -1t /backups/${prefix[$db]}-*.dump | tail -n +8 | xargs -r rm --
                   done
-                  echo "retained:"; ls -lh /backups
+
+                  pg_dumpall --globals-only -f "$run/matrix-globals.sql"
+                  test -s "$run/matrix-globals.sql"
+                  # Plain SQL: pg_restore --list does not apply. Assert instead
+                  # that every login role on the source is created by the file.
+                  # Names only — the file also holds password hashes.
+                  for role in $(psql -Atc \
+                      "select rolname from pg_roles where rolcanlogin order by 1"); do
+                    grep -q "^CREATE ROLE ${role};" "$run/matrix-globals.sql" \
+                      || { echo "FAIL: globals missing CREATE ROLE ${role}"; exit 1; }
+                  done
+
+                  { echo "run=$ts"; echo "matrix.dump"; echo "mas.dump"
+                    echo "matrix-globals.sql"; } > "$run/MANIFEST"
+                  ls -l "$run" | tail -n +2 >> "$run/MANIFEST"
+
+                  # Atomic promotion: rename(2) over an existing symlink, so a
+                  # reader sees the whole old run or the whole new one.
+                  ln -sfn "runs/$ts" /backups/.current.tmp
+                  mv -T /backups/.current.tmp /backups/current
+                  # Published. From here the run must never be deleted, so the
+                  # cleanup trap is disarmed: a retention error below is worth
+                  # reporting but must not destroy the backup just taken.
+                  trap - ERR
+
+                  # Count-based retention: keep the newest 7 run directories.
+                  # `find`, not `ls`: a glob with no match makes ls exit 2, which
+                  # under pipefail+set -e aborts the job.
+                  find /backups/runs -mindepth 1 -maxdepth 1 -type d \
+                    | sort | head -n -7 | xargs -r rm -rf --
+
+                  # Transitional: pre-025 dumps sat at the top level and are no
+                  # longer written or pruned by the loop above. Keep the newest 3
+                  # as insurance while the new scheme beds in; drop the rest.
+                  # Runs only after a successful promotion.
+                  find /backups -mindepth 1 -maxdepth 1 -name '*.dump' -printf '%T@ %p\n' \
+                    | sort -rn | tail -n +4 | cut -d' ' -f2- | xargs -r rm --
+
+                  echo "published $ts"; ls -lh "$run"
               volumeMounts:
                 - name: backups
                   mountPath: /backups
