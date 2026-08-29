@@ -7,5 +7,6 @@ resources:
   - 04-server.yaml
   - 05-frontend.yaml
   - 06-ingressroute.yaml
+  - 07-backup.yaml
 generators:
   - ksops-generator.yaml

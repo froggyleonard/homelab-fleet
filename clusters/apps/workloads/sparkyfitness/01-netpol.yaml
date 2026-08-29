@@ -84,10 +84,14 @@ spec:
       app.kubernetes.io/component: db
   policyTypes: [Ingress]
   ingress:
+    # The server pod, and the nightly backup CronJob pod (task 025).
     - from:
         - podSelector:
             matchLabels:
               app.kubernetes.io/component: server
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backup
       ports:
         - port: 5432
           protocol: TCP
@@ -197,4 +201,43 @@ spec:
         - port: 53
           protocol: UDP
         - port: 53
+          protocol: TCP
+---
+# The nightly backup CronJob pod (task 025): DNS and this namespace's postgres,
+# nothing else. Deliberately no internet egress — it only ever writes to a PVC.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backup-egress
+  namespace: sparkyfitness
+  labels:
+    app.kubernetes.io/name: sparkyfitness
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sparkyfitness-postgres
+      app.kubernetes.io/component: backup
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sparkyfitness-postgres
+              app.kubernetes.io/component: db
+      ports:
+        - port: 5432
           protocol: TCP
