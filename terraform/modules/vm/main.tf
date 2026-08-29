@@ -54,6 +54,7 @@ resource "proxmox_virtual_environment_vm" "this" {
       interface    = disk.value.interface
       size         = disk.value.size_gb
       discard      = "on"
+      backup       = disk.value.backup
     }
   }
 

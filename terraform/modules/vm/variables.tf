@@ -51,6 +51,10 @@ variable "extra_disks" {
     datastore = string
     interface = string
     size_gb   = number
+    # Whether vzdump includes this disk. Defaults to true so every disk is
+    # protected unless a caller opts out deliberately; opting out is a decision
+    # that belongs in the config, not an undeclared value drifting in the API.
+    backup = optional(bool, true)
   }))
   default = []
 }

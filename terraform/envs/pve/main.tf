@@ -37,10 +37,15 @@ locals {
     apps-cp1  = { vmid = 211, cores = 2, mem = 4096, vlan = 110, ip = "${var.net_prefix}.110.11", gw = local.gw_apps, os_gb = 25, extra = [] }
     apps-w1 = { vmid = 212, cores = 6, mem = 12288, vlan = 110, ip = "${var.net_prefix}.110.12", gw = local.gw_apps, os_gb = 30, extra = [
       { datastore = "local-zfs", interface = "scsi1", size_gb = 20 }, # PostgreSQL (SSD)
-      { datastore = "Media", interface = "scsi2", size_gb = 200 },    # Longhorn
+      # Longhorn replica data. Excluded from vzdump: a VM-level snapshot of a
+      # live replica is crash-consistent at best, the data is already replicated
+      # across both workers, and including it costs 200G of archive per night for
+      # something nobody should restore that way.
+      { datastore = "Media", interface = "scsi2", size_gb = 200, backup = false },
     ] }
     apps-w2 = { vmid = 213, cores = 6, mem = 16384, vlan = 110, ip = "${var.net_prefix}.110.13", gw = local.gw_apps, os_gb = 30, extra = [
-      { datastore = "Media", interface = "scsi1", size_gb = 200 }, # Longhorn
+      # Longhorn replica data — excluded from vzdump, see apps-w1 above.
+      { datastore = "Media", interface = "scsi1", size_gb = 200, backup = false },
     ] }
   }
 }
