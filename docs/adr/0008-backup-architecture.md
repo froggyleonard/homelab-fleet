@@ -87,12 +87,24 @@ so they are secret-bearing and are handled like the dumps themselves.
 needed to open that repository must be recoverable *without* the age keys, or the
 backup is unrecoverable in precisely the disaster it exists for.
 
-The repository password and the object-store key each live in three independent
-places: on the hypervisor for the nightly job, on the offline recovery medium
-(ADR 0006), and in my password manager. None of the three depends on either of
-the others. A restore rehearsal that authenticates from the operational copy on
-the hypervisor proves nothing about this, so the rehearsal uses the out-of-band
-copy.
+The requirement is that these two values survive any single event that destroys
+the hypervisor, **including one that destroys the building it is in**. A restore
+rehearsal that authenticates from the operational copy on the hypervisor proves
+nothing about this, so the rehearsal must use an out-of-band copy.
+
+**Today that requirement is not met, and this ADR records it rather than
+implying otherwise.** The values exist on the hypervisor (operational) and on
+the offline recovery medium (ADR 0006). Both are in the same building. There is
+no third, off-premises copy — an earlier draft of this plan named a password
+manager as the third place, which was an assumption about my setup rather than a
+fact about it; I do not use one, by choice.
+
+Note what does *not* fix this. A secrets manager (OpenBao, planned separately)
+cannot hold this credential — the backup job is a systemd unit on the hypervisor,
+outside both clusters — and its own unseal and recovery keys would need exactly
+the same treatment. Software does not create a place to keep a root secret; it
+creates another root secret that needs one. The answer is a physical copy
+somewhere else, and it is small: two values and a URL.
 
 ### Direction of transfer
 
@@ -150,6 +162,11 @@ would have required punching the exact hole the segmentation exists to prevent.
   to be asked. The validation on the receiving side is now the whole boundary.
 - **Retention costs storage.** 7 daily / 4 weekly / 3 monthly locally under a
   hard quota; 7/4/6 off-site with pruning enabled.
+- **No off-premises copy of the repository credentials yet** (see the
+  root-of-trust rule). The off-site backup is complete and correct, and a fire
+  that takes the building currently takes the ability to open it. This is the
+  largest remaining hole in the design and it is a physical errand, not an
+  engineering task.
 
 ## Related
 

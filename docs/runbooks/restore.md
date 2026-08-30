@@ -133,9 +133,14 @@ The node is gone. **Order matters here, and the first two steps are not optional
 ### D1. Get the credentials — they are NOT in this repo
 
 The off-site repository contains the age keys, so you cannot use anything
-encrypted in this repo until after you have opened it. Both credentials live in
-three independent places (ADR 0008): the (now gone) hypervisor, the offline
-recovery medium, and the password manager. Use one of the surviving two.
+encrypted in this repo until after you have opened it.
+
+**Where they are:** the hypervisor (now gone) and the offline recovery medium.
+If the event that took the hypervisor also took the building, check whether an
+off-premises copy was ever made — ADR 0008 records that as an open gap. If none
+exists and the medium is gone too, the repository cannot be opened and the
+recovery ends here; the surviving path is this repo plus whatever the clusters
+can rebuild, with every SOPS-encrypted secret unreadable and needing re-issue.
 
 You need: the repository URL, the object-store key pair, and the repository
 password.
