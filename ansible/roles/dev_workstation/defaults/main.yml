@@ -2,16 +2,15 @@
 dev_workstation_user: ops
 
 # NodeSource major series. Engines: claude-code >= 22, codex >= 16 —
-# 22.x LTS satisfies both.
+# 22.x LTS satisfies both. Both CLIs install unpinned, so a future release
+# raising its engine floor above this series would fail the npm task; bump
+# this series if that happens.
 dev_workstation_node_major: "22"
 
-# npm CLI pins — verified against registry.npmjs.org at authoring (2026-08-16).
-# The renovate comments feed the customManagers regex in /renovate.json;
-# keep each comment directly above its version line.
-# renovate: datasource=npm depName=@anthropic-ai/claude-code
-dev_workstation_claude_code_version: "2.1.233"
-# renovate: datasource=npm depName=@openai/codex
-dev_workstation_codex_version: "0.147.0"
+# claude-code and codex are NOT pinned and NOT Renovate-tracked. Both CLIs
+# self-update after install, so a pin only ever described the first install
+# and went stale immediately. They are updated by hand, same rationale as the
+# Antigravity CLI below.
 
 # Antigravity CLI (agy) is installed via Google's official installer and
 # self-updates — not pinnable, not Renovate-tracked. The provisioned version
