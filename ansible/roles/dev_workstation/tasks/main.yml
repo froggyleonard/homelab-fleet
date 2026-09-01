@@ -117,14 +117,16 @@
     state: present
     update_cache: true
 
-- name: Install pinned npm CLIs (claude-code, codex)
+# Unpinned by choice — both CLIs self-update after install and are managed
+# by hand, so there is no version to hold. See defaults/main.yml.
+- name: Install npm CLIs (claude-code, codex)
   community.general.npm:
-    name: "{{ item.name }}"
-    version: "{{ item.version }}"
+    name: "{{ item }}"
+    state: latest
     global: true
   loop:
-    - { name: "@anthropic-ai/claude-code", version: "{{ dev_workstation_claude_code_version }}" }
-    - { name: "@openai/codex", version: "{{ dev_workstation_codex_version }}" }
+    - "@anthropic-ai/claude-code"
+    - "@openai/codex"
 
 # JetBrains Remote Development backend (IntelliJ IDEA Ultimate) is
 # auto-provisioned by Gateway over SSH — nothing to install here. Raise the
