@@ -12,13 +12,14 @@ spec:
   source:
     repoURL: https://traefik.github.io/charts
     chart: traefik
-    targetRevision: 41.4.0 # traefik v3.7.6
+    targetRevision: 41.4.0 # traefik v3.7.12
     helm:
       valuesObject:
         deployment:
           replicas: 1
         service:
-          type: LoadBalancer
+          spec:
+            type: LoadBalancer
           labels:
             # Selected by the single-IP `apps-ingress` LB-IPAM pool (SOPS file in
             # clusters/apps/platform/cilium-lb) — pins the ingress VIP (.200) that
