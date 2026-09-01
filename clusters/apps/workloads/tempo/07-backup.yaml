@@ -1,0 +1,133 @@
+# Nightly logical backup of the Tempo database (025 pattern, mealie/matrix
+# precedent).
+#
+# SCOPE: this PVC is the OPERATIONAL restore layer — DB corruption and bad
+# migrations, fast, same-namespace. It is NOT the disaster layer: it lives in
+# this namespace and dies with it. The disaster layer is the seat's nightly
+# `kubectl exec` pull (task 025 layer 2 — pg-dump-all.sh grows a tempo entry
+# with this deploy).
+#
+# GLOBALS: `pg_dump -Fc` does NOT capture role definitions; every run also
+# writes `pg_dumpall --globals-only`. Restore order: globals first (psql),
+# then pg_restore.
+#
+# PUBLICATION: runs/<ts>/ + one atomic symlink swap after the complete set
+# validates. Count-based retention, never -mtime.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-pg-backups
+  namespace: tempo
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/name: tempo-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tempo-pg-backup
+  namespace: tempo
+  labels:
+    app.kubernetes.io/name: tempo-postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # 03:15 UTC — staggered against the other app backups and done before the
+  # seat's 04:00 UTC layer-2 pull.
+  schedule: "15 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          # component=backup grants this pod DB access via pg-ingress and keeps
+          # it out of the Service endpoints.
+          labels:
+            app.kubernetes.io/name: tempo-postgres
+            app.kubernetes.io/component: backup
+            app.kubernetes.io/part-of: fleet
+            app.kubernetes.io/managed-by: argocd
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              # Matches the deployed server major/minor.
+              image: postgres:18.6
+              env:
+                - name: PGHOST
+                  value: tempo-postgres.tempo.svc.cluster.local
+                - name: PGUSER
+                  value: tempo
+                - name: PGDATABASE
+                  value: tempo
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: tempo-secrets
+                      key: PG_PASSWORD
+              command:
+                - /bin/bash
+                - -ceu
+                - -o
+                - pipefail
+                - |
+                  ts="$(date -u +%Y-%m-%dT%H%M%SZ)"
+                  run="/backups/runs/$ts"
+                  mkdir -p "$run"
+                  # Nothing outside $run changes until the whole set validates.
+                  trap 'rm -rf "$run"' ERR
+
+                  pg_dump -Fc -f "$run/tempo.dump"
+                  pg_restore --list "$run/tempo.dump" > /dev/null
+
+                  pg_dumpall --globals-only -f "$run/tempo-globals.sql"
+                  test -s "$run/tempo-globals.sql"
+                  # Plain SQL: pg_restore --list does not apply. Assert instead
+                  # that every login role on the source is created by the file.
+                  for role in $(psql -Atc \
+                      "select rolname from pg_roles where rolcanlogin order by 1"); do
+                    grep -q "^CREATE ROLE ${role};" "$run/tempo-globals.sql" \
+                      || { echo "FAIL: globals missing CREATE ROLE ${role}"; exit 1; }
+                  done
+
+                  { echo "run=$ts"; echo "tempo.dump"; echo "tempo-globals.sql"; } \
+                    > "$run/MANIFEST"
+                  ls -l "$run" | tail -n +2 >> "$run/MANIFEST"
+
+                  # Atomic promotion: whole old run or whole new one.
+                  ln -sfn "runs/$ts" /backups/.current.tmp
+                  mv -T /backups/.current.tmp /backups/current
+                  # Published; disarm the cleanup trap — a retention error is
+                  # worth reporting but must not destroy the backup just taken.
+                  trap - ERR
+
+                  # Count-based retention: keep the newest 7 run directories.
+                  find /backups/runs -mindepth 1 -maxdepth 1 -type d \
+                    | sort | head -n -7 | xargs -r rm -rf --
+                  echo "published $ts"; ls -lh "$run"
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: tempo-pg-backups

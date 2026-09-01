@@ -53,6 +53,8 @@ spec:
       namespace: sparkyfitness
     - name: apps
       namespace: moneymatter
+    - name: apps
+      namespace: tempo
   # Cluster-scoped kinds the charts/configs actually ship: CRDs + RBAC +
   # webhooks (longhorn/traefik/cert-manager), StorageClasses + the static PG
   # PV, namespaces themselves, Cilium LB pools, longhorn's PriorityClass.
