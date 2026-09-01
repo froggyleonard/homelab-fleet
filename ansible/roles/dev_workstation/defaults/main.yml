@@ -9,7 +9,7 @@ dev_workstation_node_major: "22"
 # The renovate comments feed the customManagers regex in /renovate.json;
 # keep each comment directly above its version line.
 # renovate: datasource=npm depName=@anthropic-ai/claude-code
-dev_workstation_claude_code_version: "2.1.233"
+dev_workstation_claude_code_version: "2.1.252"
 # renovate: datasource=npm depName=@openai/codex
 dev_workstation_codex_version: "0.147.0"
 
