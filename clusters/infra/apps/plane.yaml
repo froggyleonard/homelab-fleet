@@ -23,7 +23,7 @@ spec:
         # Chart 1.6.2 declares appVersion 1.4.1 — pin it explicitly (chart
         # values defaults lag behind the declared appVersion).
         # renovate: datasource=github-releases depName=makeplane/plane
-        planeVersion: v1.4.1
+        planeVersion: v1.4.2
         ingress:
           enabled: true
           appHost: plane.apps.froggyleonard.com
