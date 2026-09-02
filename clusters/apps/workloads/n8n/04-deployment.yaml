@@ -60,6 +60,28 @@ spec:
               value: https://n8n.apps.froggyleonard.com/
             - name: GENERIC_TIMEZONE
               value: America/New_York
+            - name: DAILY_AI_MODEL
+              value: gpt-5.6-luna
+            - name: WEEKLY_AI_MODEL
+              value: gpt-5.6-terra
+            # Execution retention. Successful runs keep no payload (the finance
+            # workflows carry raw Sure transactions); failures keep theirs so a
+            # broken run is diagnosable, bounded by an explicit prune window
+            # rather than n8n's 336h default.
+            - name: EXECUTIONS_DATA_SAVE_ON_SUCCESS
+              value: none
+            - name: EXECUTIONS_DATA_SAVE_ON_ERROR
+              value: all
+            - name: EXECUTIONS_DATA_SAVE_ON_PROGRESS
+              value: "false"
+            - name: EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS
+              value: "false"
+            - name: EXECUTIONS_DATA_PRUNE
+              value: "true"
+            - name: EXECUTIONS_DATA_MAX_AGE
+              value: "168"
+            - name: EXECUTIONS_DATA_PRUNE_MAX_COUNT
+              value: "5000"
             - name: OLLAMA_BASE_URL
               value: http://ollama.ollama.svc.cluster.local:11434
           volumeMounts:
