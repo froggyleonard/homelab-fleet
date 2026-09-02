@@ -129,7 +129,7 @@ spec:
               memory: 64Mi
       containers:
         - name: server
-          image: ghcr.io/codewithcj/sparkyfitness-server:v1.6.2
+          image: ghcr.io/codewithcj/sparkyfitness-server:v1.6.4
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
