@@ -47,7 +47,13 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: traefik
       ports:
-        - port: 3000
+        # 8080, not the Service's 3000. A NetworkPolicy matches the POD port
+        # after DNAT, and this chart's frontend is nginx listening on 8080
+        # behind a Service that publishes 3000. Allowing 3000 matched nothing
+        # and every request for / timed out at Traefik with a 504, while /api
+        # worked because the backend's Service port and container port are both
+        # 8000. Same class as the n8n -> traefik:8443 note in n8n/01-netpol.yaml.
+        - port: 8080
           protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
