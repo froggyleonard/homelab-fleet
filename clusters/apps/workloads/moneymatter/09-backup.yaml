@@ -1,0 +1,118 @@
+# Nightly logical backup. OPERATIONAL restore layer only — it lives in this
+# namespace and dies with it. MoneyMatter is deliberately NOT yet in the seat's
+# nightly kubectl-exec pull (backup layer 2); that is deferred to the keep
+# decision, so until then this PVC is the only copy and the off-site set does not
+# include it.
+#
+# pg_dump -Fc carries no role definitions, so every run also writes
+# pg_dumpall --globals-only. Restore order is globals first with psql, then the
+# database with pg_restore — never pg_restore on globals, which is plain SQL.
+#
+# Client is postgres:16.15, matching the server major. A newer pg_dump can read an
+# older server but its output is not guaranteed to restore into that older major,
+# which is exactly what restoring this would do.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moneymatter-pg-backups
+  namespace: moneymatter
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: moneymatter-pg-backup
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # UTC, offset from mealie 03:45 and the retired securo 03:50.
+  schedule: "55 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: moneymatter
+            app.kubernetes.io/component: backup
+            app.kubernetes.io/part-of: fleet
+            app.kubernetes.io/managed-by: argocd
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              image: postgres:16.15@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+              env:
+                - name: PGHOST
+                  value: moneymatter-postgres.moneymatter.svc.cluster.local
+                - name: PGUSER
+                  value: moneymatter
+                - name: PGDATABASE
+                  value: moneymatter
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: moneymatter-secrets
+                      key: APPLICATION_DB_PASSWORD
+              command:
+                - /bin/bash
+                - -ceu
+                - -o
+                - pipefail
+                - |
+                  ts="$(date -u +%Y-%m-%dT%H%M%SZ)"
+                  run="/backups/runs/$ts"
+                  mkdir -p "$run"
+                  trap 'rm -rf "$run"' ERR
+
+                  pg_dump -Fc -f "$run/moneymatter.dump"
+                  pg_restore --list "$run/moneymatter.dump" > /dev/null
+
+                  pg_dumpall --globals-only -f "$run/moneymatter-globals.sql"
+                  test -s "$run/moneymatter-globals.sql"
+                  for role in $(psql -Atc \
+                      "select rolname from pg_roles where rolcanlogin order by 1"); do
+                    grep -q "^CREATE ROLE ${role};" "$run/moneymatter-globals.sql" \
+                      || { echo "FAIL: globals missing CREATE ROLE ${role}"; exit 1; }
+                  done
+
+                  { echo "run=$ts"; echo "moneymatter.dump"; echo "moneymatter-globals.sql"; } \
+                    > "$run/MANIFEST"
+                  ls -l "$run" | tail -n +2 >> "$run/MANIFEST"
+
+                  ln -sfn "runs/$ts" /backups/.current.tmp
+                  mv -T /backups/.current.tmp /backups/current
+                  trap - ERR
+
+                  find /backups/runs -mindepth 1 -maxdepth 1 -type d \
+                    | sort | head -n -7 | xargs -r rm -rf --
+                  echo "published $ts"; ls -lh "$run"
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests: { cpu: 50m, memory: 128Mi }
+                limits: { cpu: 500m, memory: 512Mi }
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: moneymatter-pg-backups

@@ -1,0 +1,60 @@
+# Non-secret runtime configuration, per container.
+#
+# BETTER_AUTH_URL / AUTH_ORIGIN / APP_URL / MCP_BASE_URL are all the PUBLIC
+# hostname and are single canonical values — the passkey plugin's expected origin
+# is one of them, so ceremonies only succeed on that host. The internal .apps.
+# name is reachability only.
+#
+# SYSTEM_MAX_SIGNUPS_ALLOWED=2 caps quantity, not identity, so the tunnel hostname
+# is not created until both accounts exist. RESEND_API_KEY is unset, which also
+# disables share invitations — self-registration is the only onboarding path,
+# which is why the cap is 2 rather than 1.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moneymatter-backend-config
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+data:
+  NODE_ENV: production
+  IS_SELF_HOST: "true"
+  SYSTEM_DEMO_DISABLED: "true"
+  SYSTEM_MAX_SIGNUPS_ALLOWED: "2"
+  BETTER_AUTH_URL: https://money.froggyleonard.com
+  AUTH_ORIGIN: https://money.froggyleonard.com
+  APP_URL: https://money.froggyleonard.com
+  MCP_BASE_URL: https://money.froggyleonard.com
+  AUTH_RP_ID: money.froggyleonard.com
+  AUTH_RP_NAME: MoneyMatter
+  APPLICATION_HOST: 0.0.0.0
+  APPLICATION_PORT: "8081"
+  APPLICATION_DB_HOST: moneymatter-postgres
+  APPLICATION_DB_PORT: "5432"
+  APPLICATION_DB_USERNAME: moneymatter
+  APPLICATION_DB_DATABASE: moneymatter
+  APPLICATION_DB_DIALECT: postgres
+  APPLICATION_REDIS_HOST: moneymatter-redis
+  APPLICATION_REDIS_PORT: "6379"
+  CURRENCY_RATES_API_URL: http://moneymatter-currency-rates:8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moneymatter-frontend-config
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+data:
+  # API_HTTP must be EMPTY for same-origin mode — the entrypoint validates it and
+  # errors on anything that is not empty or a full URL. API_VER is the SPA's API
+  # prefix. BACKEND_URL is the nginx proxy target.
+  BACKEND_URL: http://moneymatter-backend:8081
+  IS_SELF_HOST: "true"
+  API_HTTP: ""
+  API_VER: /api/v1
+  MCP_BASE_URL: https://money.froggyleonard.com

@@ -1,0 +1,90 @@
+# Dedicated instance, per the per-app database doctrine (CLAUDE.md). The legacy
+# shared PostgreSQL is being decommissioned by task 011 and takes no new tenants.
+#
+# storageClassName is explicit: cluster-apps has TWO StorageClasses marked
+# default, so an unspecified claim can silently bind to node-local local-path.
+apiVersion: v1
+kind: Service
+metadata:
+  name: moneymatter-postgres
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: moneymatter-postgres
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: postgres
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  serviceName: moneymatter-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: moneymatter
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: moneymatter
+        app.kubernetes.io/component: postgres
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16.15@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: moneymatter
+            - name: POSTGRES_DB
+              value: moneymatter
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: moneymatter-secrets
+                  key: APPLICATION_DB_PASSWORD
+          readinessProbe:
+            exec:
+              command: [sh, -c, 'pg_isready -U moneymatter -d moneymatter']
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 2Gi }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        annotations:
+          argocd.argoproj.io/sync-options: Prune=false,Delete=false
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 8Gi

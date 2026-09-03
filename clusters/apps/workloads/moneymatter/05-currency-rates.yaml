@@ -1,0 +1,102 @@
+# Fetches ECB and NBU reference rates itself; needs no API key for its 38 built-in
+# currencies. API_LAYER_API_KEYS is an optional paid fallback and stays unset.
+#
+# DATABASE_URL points INSIDE the mounted path. Omitting it would put the SQLite
+# file outside persistence and lose the rate history on every restart.
+apiVersion: v1
+kind: Service
+metadata:
+  name: moneymatter-currency-rates
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: currency-rates
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  selector:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: currency-rates
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moneymatter-currency-data
+  namespace: moneymatter
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: currency-rates
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moneymatter-currency-rates
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: currency-rates
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: moneymatter
+      app.kubernetes.io/component: currency-rates
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: moneymatter
+        app.kubernetes.io/component: currency-rates
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      containers:
+        - name: currency-rates
+          image: letehaha/currency-rates-api:v0.2.1@sha256:02e1fd8b92068daca811054d0feeecfa6f6baedc0c6586a42be35d275d43e23e
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              value: sqlite:/app/data/currency_rates.db?mode=rwc
+            - name: HOST
+              value: 0.0.0.0
+            - name: PORT
+              value: "8080"
+            - name: DEFAULT_API_BASE
+              value: USD
+            - name: SEED_ON_STARTUP
+              value: "true"
+            - name: SYNC_ON_STARTUP
+              value: "true"
+            - name: SYNC_CRON
+              value: "0 0 8,12,16,20 * * *"
+            - name: RUST_LOG
+              value: currency_rates=info,tower_http=info
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 256Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: moneymatter-currency-data

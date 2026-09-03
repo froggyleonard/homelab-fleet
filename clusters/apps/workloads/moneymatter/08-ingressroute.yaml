@@ -1,0 +1,32 @@
+# One catch-all to frontend:80 on both hostnames. Upstream's reverse-proxy guide
+# requires the whole domain forwarded rather than a path list, because the
+# frontend proxies /api, /mcp, /.well-known/oauth-*, /authorize, /token and
+# /register itself.
+#
+# No tls: block — Traefik's TLSStore serves the apps wildcard as its default
+# certificate, which is why no workload in this repo carries a Certificate.
+#
+# Streaming must not be buffered: the app holds a long-lived SSE connection for
+# live updates. Traefik passes that through with default settings.
+#
+# Note the internal .apps. name is for reachability only. AUTH_ORIGIN and
+# AUTH_RP_ID are the public hostname, so passkey ceremonies only succeed there —
+# bootstrap goes through the canonical name via an Unbound host override.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: moneymatter
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`money.apps.froggyleonard.com`) || Host(`money.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: moneymatter-frontend
+          port: 80
