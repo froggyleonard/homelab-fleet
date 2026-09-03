@@ -1,0 +1,32 @@
+# Securo config (task 026): namespace, SOPS secrets, network policies, routing
+# and the operational backup. Sync-wave -1 so all of it exists before the chart
+# Application runs its migration Job — that Job connects to PostgreSQL using the
+# Secret, and without ordering it can exhaust its retries before the Secret is
+# decrypted into the cluster.
+#
+# This Application owns the Namespace. It is therefore NOT part of any rollback:
+# pruning it deletes the namespace and cascades the PVCs. See the task 026 plan.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: securo-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: securo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/workloads/securo
+  destination:
+    name: apps
+    namespace: securo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

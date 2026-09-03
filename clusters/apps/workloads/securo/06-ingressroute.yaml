@@ -1,0 +1,38 @@
+# Both names: the internal one for LAN/Tailscale, the public one for the
+# Cloudflare tunnel. Unlike Sure, Securo does NOT derive its absolute URLs from
+# the request Host — it builds them from global.domain, which is set to the
+# public name in the Application. Matching both names here is purely about
+# reachability.
+#
+# No tls: block. Traefik's TLSStore sets the apps-wildcard certificate as its
+# default (clusters/apps/platform/traefik/03-tlsstore.yaml), which is why no
+# workload in this repo carries its own Certificate. The tunnel reaches the
+# origin with originServerName set to the .apps. name, which the wildcard covers.
+#
+# Path order matters: /api must be matched before the catch-all, so it is a
+# separate, more specific rule with a higher priority.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: securo
+  namespace: securo
+  labels:
+    app.kubernetes.io/name: securo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: (Host(`securo.apps.froggyleonard.com`) || Host(`securo.froggyleonard.com`)) && PathPrefix(`/api`)
+      kind: Rule
+      priority: 20
+      services:
+        - name: securo-backend
+          port: 8000
+    - match: Host(`securo.apps.froggyleonard.com`) || Host(`securo.froggyleonard.com`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: securo-frontend
+          port: 3000

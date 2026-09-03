@@ -1,37 +1,49 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits"],
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
   "description": [
-    "Task 024 — Renovate activation. Runner is the Mend hosted GitHub App.",
+    "Task 024 \u2014 Renovate activation. Runner is the Mend hosted GitHub App.",
     "Tier 1 = PRs open freely (leaf application images).",
     "Tier 2 = dependencyDashboardApproval (control plane, CNI, databases, the",
-    "GitOps engine, platform Helm charts) — drift is reported, a human ticks a",
+    "GitOps engine, platform Helm charts) \u2014 drift is reported, a human ticks a",
     "box to get a PR at all.",
     "Tier 3 = dashboard approval AND a CI guard: sops/uv carry a sibling",
     "_sha256 that a version-only bump leaves stale, so scripts/pin-guard.sh",
-    "fails such a PR closed. terraform has no checksum coupling — its",
+    "fails such a PR closed. terraform has no checksum coupling \u2014 its",
     "constraint is live-state parity and is not CI-enforceable.",
     "schedule limits when PRs may be raised, not when drift is discovered.",
     "automerge is deliberately set nowhere: every bump is a human merge."
   ],
   "timezone": "Etc/UTC",
-  "schedule": ["* 0-6 * * *"],
+  "schedule": [
+    "* 0-6 * * *"
+  ],
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
-  "labels": ["renovate"],
-
+  "labels": [
+    "renovate"
+  ],
   "kubernetes": {
-    "managerFilePatterns": ["/^clusters/.+\\.yaml$/"]
+    "managerFilePatterns": [
+      "/^clusters/.+\\.yaml$/"
+    ]
   },
   "argocd": {
-    "managerFilePatterns": ["/^clusters/infra/apps/.+\\.yaml$/"]
+    "managerFilePatterns": [
+      "/^clusters/infra/apps/.+\\.yaml$/"
+    ]
   },
-
   "customManagers": [
     {
       "customType": "regex",
       "description": "npm CLI + orchestrator toolchain pins in the dev workstation ansible role",
-      "managerFilePatterns": ["/^ansible/roles/dev_workstation/defaults/main\\.yml$/"],
+      "managerFilePatterns": [
+        "/^ansible/roles/dev_workstation/defaults/main\\.yml$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\r?\\n[a-z_]+_version: \"(?<currentValue>[^\"]+)\""
       ]
@@ -39,7 +51,9 @@
     {
       "customType": "regex",
       "description": "cluster component pins in the k3s/rke2 ansible roles",
-      "managerFilePatterns": ["/^ansible/roles/(k3s|rke2)/defaults/main\\.yaml$/"],
+      "managerFilePatterns": [
+        "/^ansible/roles/(k3s|rke2)/defaults/main\\.yaml$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\r?\\n[a-z0-9_]+: \"?(?<currentValue>[^\"\\r\\n]+?)\"?\\s*\\r?\\n"
       ],
@@ -47,10 +61,11 @@
     },
     {
       "customType": "regex",
-      "description": "pinned tool + chart-value versions (CI workflows, ArgoCD values). Two matchStrings: a bare version value, and an image reference whose tag is the version. They are mutually exclusive — a bare version may not contain ':' or '/', an image reference must contain ':'.",
+      "description": "pinned tool + chart-value versions (CI workflows, ArgoCD values). Two matchStrings: a bare version value, and an image reference whose tag is the version. They are mutually exclusive \u2014 a bare version may not contain ':' or '/', an image reference must contain ':'.",
       "managerFilePatterns": [
         "/^\\.github/workflows/.+\\.yaml$/",
-        "/^clusters/infra/apps/plane\\.yaml$/"
+        "/^clusters/infra/apps/plane\\.yaml$/",
+        "/^clusters/infra/apps/securo\\.yaml$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\r?\\n\\s*[A-Za-z_]+: ?\"?(?<currentValue>[^\":/\\r\\n]+?)\"?\\s*\\r?\\n",
@@ -59,72 +74,138 @@
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver-coerced{{/if}}"
     }
   ],
-
   "packageRules": [
     {
-      "description": "Never touch self-referencing GitOps branch refs — targetRevision: main on Applications pointing at this same repo is not an upstream version",
-      "matchManagers": ["argocd"],
-      "matchPackageNames": ["https://github.com/froggyleonard/homelab-fleet"],
+      "description": "Never touch self-referencing GitOps branch refs \u2014 targetRevision: main on Applications pointing at this same repo is not an upstream version",
+      "matchManagers": [
+        "argocd"
+      ],
+      "matchPackageNames": [
+        "https://github.com/froggyleonard/homelab-fleet"
+      ],
       "enabled": false
     },
     {
       "description": "MinIO date-stamped tags need custom versioning",
-      "matchDatasources": ["docker"],
+      "matchDatasources": [
+        "docker"
+      ],
       "matchPackageNames": [
-        "minio/minio", "minio/mc",
-        "docker.io/minio/minio", "docker.io/minio/mc"
+        "minio/minio",
+        "minio/mc",
+        "docker.io/minio/minio",
+        "docker.io/minio/mc"
       ],
       "versioning": "regex:^RELEASE\\.(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})T.*$"
     },
     {
-      "description": "Tier 3 — checksum-coupled: each *_version has a sibling *_sha256. A version-only PR fails scripts/pin-guard.sh by design",
-      "matchPackageNames": ["getsops/sops", "astral-sh/uv"],
-      "dependencyDashboardApproval": true
-    },
-    {
-      "description": "Tier 3 — terraform: live-state parity. Never bump past the version that wrote the live state without a verified zero-diff plan. Not CI-enforceable",
-      "matchPackageNames": ["hashicorp/terraform"],
-      "dependencyDashboardApproval": true
-    },
-    {
-      "description": "Tier 2 — control plane / CNI",
-      "matchPackageNames": ["k3s-io/k3s", "rancher/rke2", "cilium/cilium", "kube-vip/kube-vip"],
-      "dependencyDashboardApproval": true
-    },
-    {
-      "description": "Tier 2 — databases: a bump is a restart. matchPackageNames is an exact match, so every spelling a manifest may use is listed — the dry run caught cloudflared escaping this gate because that manifest writes the registry prefix and the rule did not",
-      "matchDatasources": ["docker"],
+      "description": "Tier 3 \u2014 checksum-coupled: each *_version has a sibling *_sha256. A version-only PR fails scripts/pin-guard.sh by design",
       "matchPackageNames": [
-        "postgres", "redis",
-        "docker.io/postgres", "docker.io/redis",
-        "docker.io/library/postgres", "docker.io/library/redis"
+        "getsops/sops",
+        "astral-sh/uv"
       ],
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Tier 2 — GitOps engine and edge: ksops decrypts everything, cloudflared is the only ingress",
-      "matchDatasources": ["docker"],
+      "description": "Tier 3 \u2014 terraform: live-state parity. Never bump past the version that wrote the live state without a verified zero-diff plan. Not CI-enforceable",
       "matchPackageNames": [
-        "viaductoss/ksops", "cloudflare/cloudflared",
-        "docker.io/viaductoss/ksops", "docker.io/cloudflare/cloudflared"
+        "hashicorp/terraform"
       ],
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Tier 2 — platform Helm charts",
-      "matchManagers": ["argocd"],
-      "matchPackageNames": ["cert-manager", "traefik", "longhorn", "authentik"],
+      "description": "Tier 2 \u2014 control plane / CNI",
+      "matchPackageNames": [
+        "k3s-io/k3s",
+        "rancher/rke2",
+        "cilium/cilium",
+        "kube-vip/kube-vip"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Tier 2 \u2014 databases: a bump is a restart. matchPackageNames is an exact match, so every spelling a manifest may use is listed \u2014 the dry run caught cloudflared escaping this gate because that manifest writes the registry prefix and the rule did not",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "postgres",
+        "redis",
+        "docker.io/postgres",
+        "docker.io/redis",
+        "docker.io/library/postgres",
+        "docker.io/library/redis",
+        "pgvector/pgvector",
+        "docker.io/pgvector/pgvector"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Tier 2 \u2014 GitOps engine and edge: ksops decrypts everything, cloudflared is the only ingress",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "viaductoss/ksops",
+        "cloudflare/cloudflared",
+        "docker.io/viaductoss/ksops",
+        "docker.io/cloudflare/cloudflared"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Tier 2 \u2014 Securo: carries the finance database, and its Helm chart is VENDORED at vendor/charts/securo/<version>/ because upstream exposes no pod placement. An image bump is therefore never just an image bump \u2014 it means re-vendoring the chart (docs/runbooks/securo-revendor.md). Dashboard-gated so that never happens automatically. matchPackageNames is exact, so every spelling is listed",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/securo-finance/securo-backend",
+        "ghcr.io/securo-finance/securo-frontend",
+        "securo-finance/securo-backend",
+        "securo-finance/securo-frontend"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Securo's backup client must match its PostgreSQL server major (pg16). A newer pg_dump can read an older server but its output is not guaranteed to restore into that older major \u2014 which is exactly what restoring this backup would do",
+      "matchFileNames": [
+        "clusters/apps/workloads/securo/07-backup.yaml"
+      ],
+      "matchPackageNames": [
+        "postgres",
+        "docker.io/library/postgres"
+      ],
+      "allowedVersions": "<17"
+    },
+    {
+      "description": "Tier 2 \u2014 platform Helm charts",
+      "matchManagers": [
+        "argocd"
+      ],
+      "matchPackageNames": [
+        "cert-manager",
+        "traefik",
+        "longhorn",
+        "authentik"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "Majors always individual and dashboard-gated",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Group CI action patches — cannot reach the cluster",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "description": "Group CI action patches \u2014 cannot reach the cluster",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "groupName": "CI actions"
     }
   ]

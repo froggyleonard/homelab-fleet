@@ -1,0 +1,136 @@
+# Securo (task 026): self-hosted personal finance app replacing Sure.
+#
+# The chart is VENDORED at vendor/charts/securo/0.15.0 rather than pulled from
+# upstream's OCI registry. Upstream 0.15.0 exposes no nodeSelector/affinity
+# anywhere, and its backend and celery worker mount the same ReadWriteOnce
+# attachments PVC — on a two-worker cluster they can be scheduled apart and one
+# fails with a multi-attach error. The vendor patch adds placement, an explicit
+# storage class on both StatefulSet claims (upstream sets none, so the claim
+# silently takes a cluster default), and sources the PostgreSQL server password
+# from the Secret instead of a hardcoded literal. See
+# docs/runbooks/securo-revendor.md and the vendor PROVENANCE.
+#
+# Sync-wave 0: securo-config (wave -1) must land the namespace, Secret and
+# policies first.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: securo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/name: securo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: vendor/charts/securo/0.15.0
+    helm:
+      valuesObject:
+        global:
+          # Securo builds its absolute URLs and its OIDC callback from this,
+          # NOT from the request Host. Setting it to the internal name would
+          # emit links that do not resolve off-LAN.
+          domain: securo.froggyleonard.com
+          tls: true
+          existingSecret: securo-secrets
+          # Vendor patch. Every pod pinned to one node while backend and worker
+          # share a ReadWriteOnce PVC. Revisit if Longhorn RWX is ever proven —
+          # there is currently no RWX volume anywhere in this fleet.
+          placement:
+            nodeSelector:
+              kubernetes.io/hostname: apps-w2
+
+        config:
+          simplefinEnabled: "true"
+          oidcEnabled: "true"
+          oidcProviderName: "Authentik"
+          oidcDiscoveryUrl: "https://auth.froggyleonard.com/application/o/securo/.well-known/openid-configuration"
+          oidcRedirectUri: "https://securo.froggyleonard.com/api/auth/oidc/callback"
+          # Deliberate, and set before a second user ever logs in: an email
+          # mismatch otherwise JIT-creates a duplicate account instead of
+          # linking to the existing one.
+          oidcExistingUserLinkMode: "email"
+          oidcRequireVerifiedEmail: "true"
+          # Local login stays enabled until OIDC is verified end to end.
+          localAuthEnabled: "true"
+          # Agents/RAG are out of scope for this deployment.
+          agentsEnabled: "false"
+
+        # The vendored chart, the backend image and the frontend image all move
+        # together with an upstream Securo release. Renovate reports the image
+        # bumps on the dashboard; acting on one means re-vendoring the chart —
+        # see docs/runbooks/securo-revendor.md.
+        backend:
+          image:
+            # renovate: datasource=docker depName=ghcr.io/securo-finance/securo-backend
+            tag: "0.15.0"
+        frontend:
+          image:
+            # renovate: datasource=docker depName=ghcr.io/securo-finance/securo-frontend
+            tag: "0.15.0"
+
+        postgresql:
+          image:
+            repository: docker.io/pgvector/pgvector
+            # pgvector, not stock postgres: the vector extension is required.
+            # The versioning regex pins the pg16 line — a silent jump to pg17
+            # would be a database major upgrade disguised as an image bump.
+            # renovate: datasource=docker depName=docker.io/pgvector/pgvector versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-pg16$
+            tag: "0.8.6-pg16"
+          persistence:
+            storageClass: longhorn
+            size: 8Gi
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+
+        redis:
+          image:
+            # renovate: datasource=docker depName=docker.io/library/redis versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-alpine$
+            tag: "8.10.1-alpine"
+          persistence:
+            storageClass: longhorn
+            size: 2Gi
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+        # Off for this deployment: another shared-PVC consumer, another JWT
+        # secret and more public surface. Enable in a separate reviewed change.
+        mcpServer:
+          enabled: false
+
+        persistence:
+          attachments:
+            enabled: true
+            size: 5Gi
+            storageClass: longhorn
+            accessMode: ReadWriteOnce
+          agentKnowledge:
+            enabled: false
+          agentEmbeddingModels:
+            enabled: false
+
+        # IngressRoute CRDs only — the chart's bare Ingress stays off.
+        ingress:
+          enabled: false
+  destination:
+    name: apps
+    namespace: securo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
