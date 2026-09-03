@@ -64,8 +64,7 @@
       "description": "pinned tool + chart-value versions (CI workflows, ArgoCD values). Two matchStrings: a bare version value, and an image reference whose tag is the version. They are mutually exclusive \u2014 a bare version may not contain ':' or '/', an image reference must contain ':'.",
       "managerFilePatterns": [
         "/^\\.github/workflows/.+\\.yaml$/",
-        "/^clusters/infra/apps/plane\\.yaml$/",
-        "/^clusters/infra/apps/securo\\.yaml$/"
+        "/^clusters/infra/apps/plane\\.yaml$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\r?\\n\\s*[A-Za-z_]+: ?\"?(?<currentValue>[^\":/\\r\\n]+?)\"?\\s*\\r?\\n",
@@ -134,9 +133,7 @@
         "docker.io/postgres",
         "docker.io/redis",
         "docker.io/library/postgres",
-        "docker.io/library/redis",
-        "pgvector/pgvector",
-        "docker.io/pgvector/pgvector"
+        "docker.io/library/redis"
       ],
       "dependencyDashboardApproval": true
     },
@@ -152,30 +149,6 @@
         "docker.io/cloudflare/cloudflared"
       ],
       "dependencyDashboardApproval": true
-    },
-    {
-      "description": "Tier 2 \u2014 Securo: carries the finance database, and its Helm chart is VENDORED at vendor/charts/securo/<version>/ because upstream exposes no pod placement. An image bump is therefore never just an image bump \u2014 it means re-vendoring the chart (docs/runbooks/securo-revendor.md). Dashboard-gated so that never happens automatically. matchPackageNames is exact, so every spelling is listed",
-      "matchDatasources": [
-        "docker"
-      ],
-      "matchPackageNames": [
-        "ghcr.io/securo-finance/securo-backend",
-        "ghcr.io/securo-finance/securo-frontend",
-        "securo-finance/securo-backend",
-        "securo-finance/securo-frontend"
-      ],
-      "dependencyDashboardApproval": true
-    },
-    {
-      "description": "Securo's backup client must match its PostgreSQL server major (pg16). A newer pg_dump can read an older server but its output is not guaranteed to restore into that older major \u2014 which is exactly what restoring this backup would do",
-      "matchFileNames": [
-        "clusters/apps/workloads/securo/07-backup.yaml"
-      ],
-      "matchPackageNames": [
-        "postgres",
-        "docker.io/library/postgres"
-      ],
-      "allowedVersions": "<17"
     },
     {
       "description": "Tier 2 \u2014 platform Helm charts",
