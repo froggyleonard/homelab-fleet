@@ -113,10 +113,22 @@ spec:
               cpu: 200m
               memory: 256Mi
 
-        # Off for this deployment: another shared-PVC consumer, another JWT
-        # secret and more public surface. Enable in a separate reviewed change.
+        # ON. It was off in the initial deploy on the reviewer's advice — a third
+        # consumer of the shared ReadWriteOnce attachments PVC, plus a JWT secret
+        # and more public surface. That reasoning does not survive contact with
+        # why this app was chosen: first-party MCP for external agents is the
+        # integration path for the finance automation layer, and it is the only
+        # supported way for an outside client to reach Securo, since the REST API
+        # has no API-token auth at all.
+        #
+        # The PVC objection is already answered: every pod including this one is
+        # pinned to a single node by the vendor placement patch, which is what
+        # closed the multi-attach blocker. The JWT secret was pre-generated into
+        # the SOPS Secret for exactly this enablement, so no secret change.
+        # AGENTS_ENABLED stays false, so the agent knowledge and embedding
+        # volumes are not mounted — the chart gates those on it.
         mcpServer:
-          enabled: false
+          enabled: true
 
         persistence:
           attachments:

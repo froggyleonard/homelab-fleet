@@ -24,6 +24,15 @@ spec:
   entryPoints:
     - websecure
   routes:
+    # The MCP server is a separate Deployment serving at /mcp on 8765. Highest
+    # priority so it is matched before /api and before the catch-all; the prefix
+    # is NOT stripped, because the app itself serves at /mcp.
+    - match: (Host(`securo.apps.froggyleonard.com`) || Host(`securo.froggyleonard.com`)) && PathPrefix(`/mcp`)
+      kind: Rule
+      priority: 25
+      services:
+        - name: securo-mcp-server
+          port: 8765
     - match: (Host(`securo.apps.froggyleonard.com`) || Host(`securo.froggyleonard.com`)) && PathPrefix(`/api`)
       kind: Rule
       priority: 20

@@ -108,6 +108,10 @@ spec:
       ports:
         - port: 8000
           protocol: TCP
+        # MCP server. Securo's REST API has no API-token auth, so the MCP
+        # surface is the supported path for an external client.
+        - port: 8765
+          protocol: TCP
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

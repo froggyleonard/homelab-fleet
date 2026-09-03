@@ -113,7 +113,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/component
                 operator: In
-                values: [backend, celery-worker, celery-beat, migration, backup]
+                values: [backend, celery-worker, celery-beat, migration, backup, mcp-server]
       ports:
         - port: 5432
           protocol: TCP
@@ -186,4 +186,41 @@ spec:
             cidr: 0.0.0.0/0
       ports:
         - port: 443
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: securo-mcp-ingress
+  namespace: securo
+  labels:
+    app.kubernetes.io/name: securo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # The MCP server is how external agents reach Securo — the REST API has no
+  # API-token auth, so this is the integration path for the automation layer.
+  # JWT auth is enforced by the app on every call; this policy only decides who
+  # may open the connection.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: securo
+      app.kubernetes.io/component: mcp-server
+  policyTypes: [Ingress]
+  ingress:
+    # Traefik, for the /mcp route on the public and internal hostnames.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 8765
+          protocol: TCP
+    # n8n in-cluster, for the draupnir workflows.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: n8n
+      ports:
+        - port: 8765
           protocol: TCP
