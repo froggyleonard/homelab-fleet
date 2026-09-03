@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: securo
+  labels:
+    app.kubernetes.io/name: securo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd

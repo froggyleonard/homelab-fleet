@@ -1,0 +1,137 @@
+# Nightly logical backup of the Securo database (task 026, mirroring task 025).
+#
+# SCOPE: this PVC is the OPERATIONAL restore layer — DB corruption and bad
+# migrations. It is NOT the disaster layer: it lives in this namespace and dies
+# with it. Securo is deliberately NOT yet in the seat's nightly `kubectl exec`
+# pull (backup layer 2); that is deferred until the keep decision, so until then
+# this PVC is the only database copy and the off-site set does not include it.
+#
+# GLOBALS: `pg_dump -Fc` does NOT capture role definitions, so every run also
+# writes `pg_dumpall --globals-only`. Restore order is globals first (psql), then
+# the database (pg_restore) — never pg_restore on globals, which is plain SQL.
+#
+# CLIENT VERSION: postgres:16.15 matches the pgvector pg16 server major. A newer
+# pg_dump can read an older server, but its output is not guaranteed to restore
+# into that older major — which is exactly what a restore here would do.
+#
+# Schedule is UTC (in-cluster CronJobs have no local timezone), offset from
+# Mealie's 03:45 so the two do not contend for Longhorn at once.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: securo-pg-backups
+  namespace: securo
+  annotations:
+    # Prune=false alone does not survive Application deletion; Delete=false does.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  labels:
+    app.kubernetes.io/name: securo
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: securo-pg-backup
+  namespace: securo
+  labels:
+    app.kubernetes.io/name: securo
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  schedule: "50 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          # component=backup grants DB access via securo-datastore-ingress and
+          # keeps this pod out of any Service endpoints.
+          labels:
+            app.kubernetes.io/name: securo
+            app.kubernetes.io/component: backup
+            app.kubernetes.io/part-of: fleet
+            app.kubernetes.io/managed-by: argocd
+        spec:
+          restartPolicy: OnFailure
+          # Same pin as every other Securo pod: the backup PVC is ReadWriteOnce
+          # on Longhorn and must attach where this Job runs.
+          nodeSelector:
+            kubernetes.io/hostname: apps-w2
+          containers:
+            - name: pg-dump
+              image: postgres:16.15
+              env:
+                - name: PGHOST
+                  value: securo-postgresql.securo.svc.cluster.local
+                - name: PGUSER
+                  value: postgres
+                - name: PGDATABASE
+                  value: securo
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: securo-secrets
+                      key: POSTGRES_PASSWORD
+              command:
+                - /bin/bash
+                - -ceu
+                - -o
+                - pipefail
+                - |
+                  ts="$(date -u +%Y-%m-%dT%H%M%SZ)"
+                  run="/backups/runs/$ts"
+                  mkdir -p "$run"
+                  # Nothing outside $run changes until the whole set validates.
+                  trap 'rm -rf "$run"' ERR
+
+                  pg_dump -Fc -f "$run/securo.dump"
+                  pg_restore --list "$run/securo.dump" > /dev/null
+
+                  pg_dumpall --globals-only -f "$run/securo-globals.sql"
+                  test -s "$run/securo-globals.sql"
+                  # Plain SQL: pg_restore --list does not apply. Assert instead
+                  # that every login role on the source is created by the file.
+                  for role in $(psql -Atc \
+                      "select rolname from pg_roles where rolcanlogin order by 1"); do
+                    grep -q "^CREATE ROLE ${role};" "$run/securo-globals.sql" \
+                      || { echo "FAIL: globals missing CREATE ROLE ${role}"; exit 1; }
+                  done
+
+                  { echo "run=$ts"; echo "securo.dump"; echo "securo-globals.sql"; } \
+                    > "$run/MANIFEST"
+                  ls -l "$run" | tail -n +2 >> "$run/MANIFEST"
+
+                  ln -sfn "runs/$ts" /backups/.current.tmp
+                  mv -T /backups/.current.tmp /backups/current
+                  # Published: a retention error below must not destroy it.
+                  trap - ERR
+
+                  find /backups/runs -mindepth 1 -maxdepth 1 -type d \
+                    | sort | head -n -7 | xargs -r rm -rf --
+                  echo "published $ts"; ls -lh "$run"
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: securo-pg-backups
