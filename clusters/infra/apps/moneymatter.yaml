@@ -1,0 +1,42 @@
+# MoneyMatter (task 027): self-hosted personal finance app, replacing the
+# cancelled Securo deployment. Chosen because its MCP surface is OAuth-scoped
+# read/write (105 tools, ~57 writes) rather than propose-only, and because it
+# models creditCard, loan and mortgage account types natively.
+#
+# Hand-written Kustomize: upstream ships docker-compose only, no chart. Five
+# services, no plugin pods.
+#
+# Deliberately NO resources finalizer. ArgoCD prune therefore ORPHANS rather than
+# cascades — proven by the Securo teardown, where pruning left the namespace
+# Active with every workload running. Stage-1 rollback is a git-managed retention
+# skeleton, not an Application delete. See the task 027 plan.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: moneymatter
+  namespace: argocd
+  annotations:
+    # Upstream publishes NO semver image tags — a full 100-tag page is sha-*, pr-*
+    # and latest — so the images are pinned by release commit + digest and cannot
+    # be version-tracked directly. This annotation is the tracked dependency:
+    # Renovate reports new releases on the dashboard, and a human resolves
+    # release tag -> commit -> digest at bump time. sha-2585df4 is v0.27.4.
+    # renovate: datasource=github-releases depName=letehaha/budget-tracker
+    moneymatter.fleet/upstream-version: v0.27.4
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/workloads/moneymatter
+  destination:
+    name: apps
+    namespace: moneymatter
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

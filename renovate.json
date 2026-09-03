@@ -64,7 +64,8 @@
       "description": "pinned tool + chart-value versions (CI workflows, ArgoCD values). Two matchStrings: a bare version value, and an image reference whose tag is the version. They are mutually exclusive \u2014 a bare version may not contain ':' or '/', an image reference must contain ':'.",
       "managerFilePatterns": [
         "/^\\.github/workflows/.+\\.yaml$/",
-        "/^clusters/infra/apps/plane\\.yaml$/"
+        "/^clusters/infra/apps/plane\\.yaml$/",
+        "/^clusters/infra/apps/moneymatter\\.yaml$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\r?\\n\\s*[A-Za-z_]+: ?\"?(?<currentValue>[^\":/\\r\\n]+?)\"?\\s*\\r?\\n",
@@ -149,6 +150,30 @@
         "docker.io/cloudflare/cloudflared"
       ],
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Tier 2 \u2014 MoneyMatter: the finance app and its database. Upstream publishes no semver image tags, so the images are pinned by release commit plus digest; the tracked dependency is the upstream-version annotation on the Application, and acting on a reported release means re-resolving the commit and digests by hand. Dashboard-gated so that is never automatic. matchPackageNames is exact, so every spelling is listed",
+      "matchPackageNames": [
+        "letehaha/budget-tracker",
+        "letehaha/budget-tracker-be",
+        "letehaha/budget-tracker-fe",
+        "docker.io/letehaha/budget-tracker-be",
+        "docker.io/letehaha/budget-tracker-fe",
+        "letehaha/currency-rates-api",
+        "docker.io/letehaha/currency-rates-api"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "MoneyMatter's backup client and init container must match its PostgreSQL server major (16). A newer pg_dump can read an older server but its output is not guaranteed to restore into that older major, which is exactly what restoring this backup would do",
+      "matchFileNames": [
+        "clusters/apps/workloads/moneymatter/*.yaml"
+      ],
+      "matchPackageNames": [
+        "postgres",
+        "docker.io/library/postgres"
+      ],
+      "allowedVersions": "<17"
     },
     {
       "description": "Tier 2 \u2014 platform Helm charts",

@@ -1,0 +1,255 @@
+# Default-deny both directions, then explicit allows.
+#
+# Traffic path is browser-or-n8n -> Traefik -> frontend:80 -> backend:8081. The
+# frontend serves the SPA and reverse-proxies the API, so it is the single
+# entrypoint; upstream's reverse-proxy guide is explicit that the whole domain is
+# forwarded rather than a path list.
+#
+# PORTS ARE POD PORTS, NOT SERVICE PORTS. A NetworkPolicy matches after DNAT.
+# frontend listens on 80 (its Dockerfile EXPOSEs 80), backend on 8081
+# (APPLICATION_PORT), currency-rates on 8080. Getting this wrong is how the Securo
+# deployment served 504s on / while /api worked.
+#
+# Both directions are required for every pod-to-pod hop: source egress AND
+# destination ingress. frontend->backend needs a rule at each end.
+#
+# No n8n rule here: n8n reaches the canonical hostname through the existing
+# n8n -> traefik:8443 egress in clusters/apps/workloads/n8n/01-netpol.yaml, so its
+# peer at this namespace is Traefik, not n8n.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-ingress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: moneymatter
+      app.kubernetes.io/component: frontend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 80
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ingress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # The destination side of the frontend's API proxy. Without this, every API
+  # call, the OAuth endpoints and /mcp all fail under default-deny.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: moneymatter
+      app.kubernetes.io/component: backend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: moneymatter
+              app.kubernetes.io/component: frontend
+      ports:
+        - port: 8081
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: datastore-ingress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [postgres, redis, currency-rates]
+  policyTypes: [Ingress]
+  ingress:
+    # postgres: backend and the backup CronJob. redis and currency: backend only.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backend
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+        - port: 8080
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backup
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dns-egress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-egress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backend
+      ports:
+        - port: 8081
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [postgres, redis, currency-rates]
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+        - port: 8080
+          protocol: TCP
+    # SimpleFIN. Breadth accepted, consistent with the Mealie precedent.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: currency-egress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # It fetches ECB and NBU reference rates itself on startup and on its cron, so
+  # it needs its own egress — the backend's rules do not cover it.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: currency-rates
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 443
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backup-egress
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  # Resolves the postgres Service and connects to it. Deliberately no internet
+  # egress and no redis — it only ever writes to a PVC.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: backup
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: postgres
+      ports:
+        - port: 5432
+          protocol: TCP

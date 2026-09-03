@@ -1,0 +1,89 @@
+# The backend runs database migrations BEFORE it binds /health, so readiness is a
+# real gate on migration completion. The init container additionally waits for
+# postgres, redis and currency-rates, because manifest order does not order pod
+# startup and a restart must not race its own dependencies — the Securo
+# deployment had every app pod start one second before its own database.
+apiVersion: v1
+kind: Service
+metadata:
+  name: moneymatter-backend
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  selector:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moneymatter-backend
+  namespace: moneymatter
+  labels:
+    app.kubernetes.io/name: moneymatter
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: moneymatter
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: moneymatter
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      initContainers:
+        - name: wait-for-deps
+          image: postgres:16.15@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+          command:
+            - /bin/sh
+            - -ceu
+            - |
+              until pg_isready -h moneymatter-postgres -p 5432 -U moneymatter; do
+                echo "waiting for postgres"; sleep 2
+              done
+              until (echo > /dev/tcp/moneymatter-redis/6379) 2>/dev/null; do
+                echo "waiting for redis"; sleep 2
+              done
+              until (echo > /dev/tcp/moneymatter-currency-rates/8080) 2>/dev/null; do
+                echo "waiting for currency-rates"; sleep 2
+              done
+              echo "dependencies ready"
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+      containers:
+        - name: backend
+          image: letehaha/budget-tracker-be:sha-2585df4@sha256:b0df1457e0fa83381ba5235700697f5f2807327ff2c647eb5ebbf8ba3d4f28dd
+          ports:
+            - name: http
+              containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: moneymatter-backend-config
+            - secretRef:
+                name: moneymatter-secrets
+          startupProbe:
+            httpGet: { path: /health, port: 8081 }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /health, port: 8081 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
