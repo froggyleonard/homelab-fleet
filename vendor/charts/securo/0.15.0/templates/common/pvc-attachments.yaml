@@ -1,0 +1,25 @@
+{{- if .Values.persistence.attachments.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "securo.fullname" . }}-attachments
+  annotations:
+    # FLEET PATCH (task 026): this is a standalone Application-owned PVC, so
+    # deleting the chart Application cascades it. Delete=false keeps the data.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  labels:
+    {{- include "securo.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.attachments.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.attachments.size | quote }}
+  {{- if .Values.persistence.attachments.storageClass }}
+  {{- if (eq "-" .Values.persistence.attachments.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: "{{ .Values.persistence.attachments.storageClass }}"
+  {{- end }}
+  {{- end }}
+{{- end }}
