@@ -95,6 +95,19 @@ spec:
       ports:
         - port: 8443
           protocol: TCP
+    # task 026: the draupnir automation layer reads the Securo REST API on the
+    # in-cluster Service, not via the public hostname. This source-side rule is
+    # required in addition to the matching ingress allow in the securo
+    # namespace — n8n egress is default-deny, so an ingress allow alone is not
+    # enough, and the 0.0.0.0/0 ipBlock below only matches cluster-EXTERNAL
+    # traffic under Cilium.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: securo
+      ports:
+        - port: 8000
+          protocol: TCP
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
