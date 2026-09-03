@@ -81,10 +81,17 @@ spec:
                 name: moneymatter-backend-config
             - secretRef:
                 name: moneymatter-secrets
+          # 5s x 240 = 20 minutes. The backend runs the full migration set before
+          # binding /health, and on a fresh database that exceeds the 5 minutes
+          # the previous 60 allowed: the first boot was SIGKILLed at 5m29s
+          # mid-migration (exit 137) and only survived because the migrations are
+          # idempotent and the retry resumed. An upgrade carrying a long migration
+          # would hit the same wall, and a killed migration on a finance database
+          # is not something to leave to luck.
           startupProbe:
             httpGet: { path: /health, port: 8081 }
             periodSeconds: 5
-            failureThreshold: 60
+            failureThreshold: 240
           readinessProbe:
             httpGet: { path: /health, port: 8081 }
             periodSeconds: 10
