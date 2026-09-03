@@ -49,8 +49,12 @@ spec:
       initContainers:
         - name: wait-for-deps
           image: postgres:16.15@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+          # /bin/bash, not /bin/sh: sh in this image is dash, which has no
+          # /dev/tcp, so the redis and currency checks below could never succeed
+          # and the init container would block forever. Verified in-cluster —
+          # dash fails, bash works.
           command:
-            - /bin/sh
+            - /bin/bash
             - -ceu
             - |
               until pg_isready -h moneymatter-postgres -p 5432 -U moneymatter; do
