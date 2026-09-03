@@ -56,8 +56,13 @@ spec:
           # linking to the existing one.
           oidcExistingUserLinkMode: "email"
           oidcRequireVerifiedEmail: "true"
-          # Local login stays enabled until OIDC is verified end to end.
-          localAuthEnabled: "true"
+          # OIDC verified end to end 2026-09-03, so the password path is closed.
+          # The sole account is OIDC-linked, workspace owner and superuser, so
+          # nothing is stranded by this. Break-glass if Authentik is ever down:
+          # flip this back to "true" via a PR and let ArgoCD sync — there is no
+          # faster path, and that is the accepted trade for closing the
+          # password login.
+          localAuthEnabled: "false"
           # Agents/RAG are out of scope for this deployment.
           agentsEnabled: "false"
 
