@@ -67,6 +67,16 @@ spec:
         app.kubernetes.io/part-of: fleet
         app.kubernetes.io/managed-by: argocd
     spec:
+      # The image runs as appuser (uid/gid 1000) and ships /app/data owned by it,
+      # but mounting an empty Longhorn PVC over that path replaces it with a
+      # root-owned directory, so SQLite cannot create currency_rates.db and the
+      # container exits 1 with "unable to open database file". fsGroup makes
+      # Kubernetes group-own the volume and add 1000 as a supplemental group.
+      # postgres and redis do not need this — their official images chown their
+      # data directories on first start.
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: currency-rates
           image: letehaha/currency-rates-api:v0.2.1@sha256:02e1fd8b92068daca811054d0feeecfa6f6baedc0c6586a42be35d275d43e23e
