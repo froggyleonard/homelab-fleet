@@ -1,0 +1,18 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: tempo
+  namespace: tempo
+  labels:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`tempo.apps.froggyleonard.com`)
+      kind: Rule
+      services:
+        - name: tempo
+          port: 8000

@@ -1,0 +1,123 @@
+# Tempo v0.2.5 — my own tracker (private repo froggyleonard/tempo; the GHCR
+# image is PRIVATE too — PLAN A3 superseded F4 because the image contains the
+# app source. Pulls authenticate via the ghcr-pull dockerconfigjson secret,
+# minted from a fine-grained read:packages PAT). Version = the repo's git tag;
+# bump the image tag to deploy a release.
+#
+# Migrations run in an initContainer with the same image: the Deployment is
+# Recreate + single replica, so there is never a second writer racing the
+# migration.
+#
+# OIDC: allauth openid_connect against Authentik. OIDC_SERVER_URL is the
+# ISSUER, not the discovery URL (allauth appends .well-known itself —
+# SparkyFitness convention, not Mealie's; each app's UI decides, per the OIDC
+# house notes). Login is OIDC-only by construction: no password form exists in
+# the app. The static bearer token is the machine/MCP credential.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: tempo
+  labels:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  selector:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: tempo
+  labels:
+    app.kubernetes.io/name: tempo
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tempo
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tempo
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        runAsNonRoot: true
+      initContainers:
+        - name: migrate
+          image: ghcr.io/froggyleonard/tempo:0.2.5
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - secretRef:
+                name: tempo-secrets
+          env:
+            - name: ALLOWED_HOSTS
+              value: tempo.apps.froggyleonard.com
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+      containers:
+        - name: tempo
+          image: ghcr.io/froggyleonard/tempo:0.2.5
+          envFrom:
+            - secretRef:
+                name: tempo-secrets
+          env:
+            - name: ALLOWED_HOSTS
+              value: tempo.apps.froggyleonard.com
+            - name: CSRF_TRUSTED_ORIGINS
+              value: https://tempo.apps.froggyleonard.com
+            - name: TIME_ZONE
+              value: America/New_York
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /healthz/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: tempo.apps.froggyleonard.com
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: tempo.apps.froggyleonard.com
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
