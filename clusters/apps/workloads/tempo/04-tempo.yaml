@@ -1,4 +1,4 @@
-# Tempo v0.2.5 — my own tracker (private repo froggyleonard/tempo; the GHCR
+# Tempo v0.2.6 — my own tracker (private repo froggyleonard/tempo; the GHCR
 # image is PRIVATE too — PLAN A3 superseded F4 because the image contains the
 # app source. Pulls authenticate via the ghcr-pull dockerconfigjson secret,
 # minted from a fine-grained read:packages PAT). Version = the repo's git tag;
@@ -65,7 +65,7 @@ spec:
         runAsNonRoot: true
       initContainers:
         - name: migrate
-          image: ghcr.io/froggyleonard/tempo:0.2.5
+          image: ghcr.io/froggyleonard/tempo:0.2.6
           command: ["python", "manage.py", "migrate", "--noinput"]
           envFrom:
             - secretRef:
@@ -82,7 +82,7 @@ spec:
               memory: 384Mi
       containers:
         - name: tempo
-          image: ghcr.io/froggyleonard/tempo:0.2.5
+          image: ghcr.io/froggyleonard/tempo:0.2.6
           envFrom:
             - secretRef:
                 name: tempo-secrets
