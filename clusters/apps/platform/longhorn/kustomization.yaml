@@ -6,5 +6,6 @@ resources:
 - 01b-node-netpol.yaml
 - 03-resource-defaults.yaml
 - 04-recurring-backup.yaml
+- 05-first-backup-job.yaml
 generators:
 - ksops-generator.yaml
