@@ -58,3 +58,27 @@ GitOps changes.
 [ArgoCD allow-empty pruning](https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/)
 explains the explicit empty-source setting. The separate unregister step avoids
 relying on a deletion finalizer that the current Application does not have.
+
+
+## Recover an Application removed before namespace pruning
+
+If the unregister stage lands before the drain has reconciled, the namespace
+can remain without its Application. Re-register the same Ollama Application
+name and destination with the intentionally empty Kustomization and allowEmpty.
+Its existing tracking annotations let ArgoCD rediscover the remaining namespace
+and policies for pruning. This recovery contains no namespace, workload, PVC,
+StorageClass or Secret manifests and does not restart Ollama.
+
+Before approval, require no Ollama pods, PVCs, Secrets or new user data and
+verify that all remaining tracked resources still identify the Ollama app.
+After merge, observe the recreated Application's inventory and automatic pruning.
+Require the namespace to disappear, the resource list to become empty and
+reconciliation to succeed. Do not remove finalizers or delete resources manually
+if pruning fails; inspect the reported error first.
+
+Prepare the final unregister PR only after that evidence exists. This avoids
+another premature batch merge. Rollback preserves the empty Application while
+its namespace deletion completes; deleting the registration again before then
+would repeat the orphaning. Restore namespace policies from the prior cleanup
+revision through GitOps only if an empty namespace is deliberately needed.
+Database provisioning/network cleanup and retained recovery data are unaffected.

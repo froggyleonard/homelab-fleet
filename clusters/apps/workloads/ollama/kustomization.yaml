@@ -1,0 +1,5 @@
+# Intentionally empty while the existing Application prunes its last resources.
+# Remove this directory and Application only after its live resource list is empty.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []
