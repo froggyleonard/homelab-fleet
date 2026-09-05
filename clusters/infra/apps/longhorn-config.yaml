@@ -1,0 +1,25 @@
+# Companion to the pinned Longhorn chart: backup credentials and policy.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn-config
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: longhorn-config
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-1'
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/platform/longhorn
+  destination:
+    name: apps
+    namespace: longhorn-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -3,6 +3,15 @@
 - Status: **accepted** (2026-08-29)
 - Deciders: operator (solo)
 
+## Amendment — Longhorn backup preparation (2026-09-05)
+
+I am adding scheduled Longhorn volume backups to a separate B2 bucket for the
+Talos migration preflight; see [the rollout and restore runbook](../runbooks/longhorn-backups.md).
+The worker data disks remain excluded from whole-guest archives. This adds
+volume-level off-site coverage without changing native database dump/globals
+requirements. Deployment and restore verification remain pending; the original
+decision and its dated evidence are preserved below.
+
 ## Context and problem statement
 
 There was no backup job on the hypervisor at all. Not a misconfigured one — none.

@@ -1,0 +1,70 @@
+# All allows are in one policy to avoid installing a partial allow set.
+# Internal dynamic engine/replica ports stay inside longhorn-system. External
+# HTTPS supports the B2 backupstore. API server, DNS and node ingress are explicit.
+# Node ports: iSCSI 3260, webhooks/recovery 9501-9503, UI/CSI probes 8000/9808,
+# share-manager 2049. Current PVCs are RWO. No host firewall is changed.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: longhorn-allowed-traffic
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-20'
+spec:
+  endpointSelector: {}
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: longhorn-system
+  - fromEntities:
+    - host
+    - remote-node
+    - kube-apiserver
+    toPorts:
+    - ports:
+      - port: '3260'
+        protocol: TCP
+      - port: '9501'
+        protocol: TCP
+      - port: '9502'
+        protocol: TCP
+      - port: '9503'
+        protocol: TCP
+      - port: '8000'
+        protocol: TCP
+      - port: '9808'
+        protocol: TCP
+      - port: '2049'
+        protocol: TCP
+  egress:
+  - toEntities:
+    - kube-apiserver
+    toPorts:
+    - ports:
+      - port: '443'
+        protocol: TCP
+      - port: '6443'
+        protocol: TCP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: longhorn-system
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: '53'
+        protocol: UDP
+      - port: '53'
+        protocol: TCP
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: '443'
+        protocol: TCP
