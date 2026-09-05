@@ -25,6 +25,12 @@ spec:
           defaultClassReplicaCount: 2
         defaultSettings:
           defaultDataPath: /var/lib/longhorn
+          # Temporarily attach otherwise idle volumes for their backup job.
+          allowRecurringJobWhileVolumeDetached: true
+        defaultBackupStore:
+          backupTarget: s3://fleet-longhorn-backups@us-east-005/
+          backupTargetCredentialSecret: longhorn-b2-backups
+          pollInterval: 300
   destination:
     # By registered cluster name (see manifests/apps-cluster-secret) — keeps
     # node addresses out of this public repo.

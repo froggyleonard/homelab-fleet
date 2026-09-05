@@ -1,0 +1,17 @@
+# Explicit namespace baseline. The complete allow policy is applied first.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-10'
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress

@@ -1,0 +1,24 @@
+# The controller creates the CronJob with Forbid concurrency. Its schedule
+# uses the kube-controller-manager timezone; verify it during rollout.
+# Default group includes volumes without another recurring-job assignment.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: nightly-b2
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '10'
+spec:
+  name: nightly-b2
+  task: backup
+  cron: 0 6 * * *
+  retain: 7
+  concurrency: 1
+  groups:
+  - default
+  labels:
+    backup-policy: nightly-b2
