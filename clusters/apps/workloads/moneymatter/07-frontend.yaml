@@ -46,6 +46,19 @@ spec:
       containers:
         - name: frontend
           image: letehaha/budget-tracker-fe:sha-2585df4@sha256:815a97165a5f1fe9df8d0254e5b1cf0a02976015a5a19eb9b868b4b2bbbc65ea
+          # The pinned image's entrypoint renders its includes before exec-ing
+          # these args. Copy into that writable include; do not mount over it,
+          # because startup would otherwise try to overwrite a read-only file.
+          args:
+            - /bin/sh
+            - -ec
+            - |
+              cp /etc/moneymatter-oauth/oauth-mcp.conf /etc/nginx/includes/oauth-mcp.conf
+              exec nginx -g 'daemon off;'
+          volumeMounts:
+            - name: oauth-metadata
+              mountPath: /etc/moneymatter-oauth
+              readOnly: true
           ports:
             - name: http
               containerPort: 80
@@ -59,3 +72,7 @@ spec:
           resources:
             requests: { cpu: 50m, memory: 64Mi }
             limits: { cpu: 200m, memory: 256Mi }
+      volumes:
+        - name: oauth-metadata
+          configMap:
+            name: moneymatter-oauth-metadata
