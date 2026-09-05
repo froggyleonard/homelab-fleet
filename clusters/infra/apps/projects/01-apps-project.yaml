@@ -39,8 +39,6 @@ spec:
     - name: apps
       namespace: homarr
     - name: apps
-      namespace: ollama
-    - name: apps
       namespace: cloudflared
     - name: apps
       namespace: plane
