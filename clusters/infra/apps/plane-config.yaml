@@ -1,5 +1,5 @@
-# Companion to the plane chart app: namespace, SOPS secrets, netpols.
-# (IngressRoute comes from the chart itself — see plane.yaml.)
+# Recovery resources retained after Plane workload retirement.
+# Keep this namespace and encrypted secrets until data disposal is authorized.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

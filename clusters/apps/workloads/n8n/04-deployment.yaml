@@ -82,8 +82,6 @@ spec:
               value: "168"
             - name: EXECUTIONS_DATA_PRUNE_MAX_COUNT
               value: "5000"
-            - name: OLLAMA_BASE_URL
-              value: http://ollama.ollama.svc.cluster.local:11434
           volumeMounts:
             - name: data
               mountPath: /home/node/.n8n
