@@ -1,0 +1,14 @@
+# A non-empty target lets the existing Application prune the old chart.
+# This directory is intentionally separate from plane-config's resources.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plane-retirement
+  namespace: plane
+  labels:
+    app.kubernetes.io/name: plane
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+data:
+  phase: workloads-removed-data-retained
+  runbook: docs/runbooks/decommission-plane-ollama.md

@@ -1,5 +1,5 @@
 # Default-deny; UI/webhooks in via Traefik only. Egress: DNS, shared PG,
-# Ollama API, Synapse client API (matrix ns :8008 — notification bot),
+# Synapse client API (matrix ns :8008 — notification bot),
 # Traefik entrypoints (workflows call *.apps services via the cluster
 # ingress), and 443/80 out — workflows call external APIs by design.
 apiVersion: networking.k8s.io/v1
@@ -69,13 +69,6 @@ spec:
               kubernetes.io/metadata.name: postgres
       ports:
         - port: 5432
-          protocol: TCP
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ollama
-      ports:
-        - port: 11434
           protocol: TCP
     - to:
         - namespaceSelector:
