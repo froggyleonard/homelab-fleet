@@ -98,7 +98,7 @@ spec:
         fsGroup: 911
       containers:
         - name: mealie
-          image: ghcr.io/mealie-recipes/mealie:v3.23.1
+          image: ghcr.io/mealie-recipes/mealie:v3.25.1
           env:
             - name: PUID
               value: "911"
