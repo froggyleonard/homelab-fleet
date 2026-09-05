@@ -1,5 +1,5 @@
-# Tenants exactly: authentik, n8n, sure, plane (plan v2 disposition table;
-# plane added by task 008).
+# Active tenants: authentik and n8n. Plane and Sure databases/roles remain
+# retained for recovery, but this hook no longer provisions or changes them.
 # PostSync hook — reruns on every sync; every statement is idempotent and
 # ALTER ROLE converges password rotations from the SOPS secret.
 apiVersion: batch/v1
@@ -47,22 +47,12 @@ spec:
                 secretKeyRef:
                   name: postgres-credentials
                   key: n8n-password
-            - name: SURE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-credentials
-                  key: sure-password
-            - name: PLANE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-credentials
-                  key: plane-password
           command:
             - /bin/bash
             - -ceu
             - |
               until pg_isready -q; do echo "waiting for postgres..."; sleep 3; done
-              for tenant in authentik n8n sure plane; do
+              for tenant in authentik n8n; do
                 pw_var="$(echo "$tenant" | tr a-z A-Z)_PASSWORD"
                 pw="${!pw_var}"
                 echo "=== tenant: $tenant ==="

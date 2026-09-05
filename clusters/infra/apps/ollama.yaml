@@ -1,3 +1,4 @@
+# Cleanup step 1: prune the empty namespace before removing this Application.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -20,3 +21,4 @@ spec:
     automated:
       prune: true
       selfHeal: true
+      allowEmpty: true
