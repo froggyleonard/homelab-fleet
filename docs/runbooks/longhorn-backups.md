@@ -14,8 +14,8 @@ Merging these manifests deploys them through ArgoCD auto-sync.
 - Schedule: `nightly-b2`, `0 6 * * *`, task `backup`, retain 7 backups per
   volume/job, concurrency 1, group `default`. The controller creates a CronJob
   with `Forbid` overlap handling. Longhorn 1.12.0 does not expose a timezone
-  field; 06:00 uses the Kubernetes controller's timezone, which needs runtime
-  verification. This schedule has no ordering dependency on database dumps.
+  field; 06:00 uses the Kubernetes controller's timezone. The control-plane
+  host reports UTC (guest-agent check on 2026-09-05). This schedule has no ordering dependency on database dumps.
 - Detached volumes may be temporarily attached to run their backup.
 
 All 23 current Longhorn volumes have the default recurring-job group enabled
