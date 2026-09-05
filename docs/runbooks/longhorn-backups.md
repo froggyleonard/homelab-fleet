@@ -14,8 +14,8 @@ Merging these manifests deploys them through ArgoCD auto-sync.
 - Schedule: `nightly-b2`, `0 6 * * *`, task `backup`, retain 7 backups per
   volume/job, concurrency 1, group `default`. The controller creates a CronJob
   with `Forbid` overlap handling. Longhorn 1.12.0 does not expose a timezone
-  field; 06:00 uses the Kubernetes controller's timezone, which needs runtime
-  verification. This schedule has no ordering dependency on database dumps.
+  field; 06:00 uses the Kubernetes controller's timezone. The control-plane
+  host reports UTC (guest-agent check on 2026-09-05). This schedule has no ordering dependency on database dumps.
 - Detached volumes may be temporarily attached to run their backup.
 
 All 23 current Longhorn volumes have the default recurring-job group enabled
@@ -101,6 +101,29 @@ both degraded volumes still receive completed backups.
 Preparation validation covers YAML/installed CRD server dry-run, the chart
 render comparison, and ciphertext structure/recipient. It does not decrypt the
 Secret, authenticate to B2, prove live policy connectivity, or prove restore.
+
+## One-time preflight run — 2026-09-05
+
+I requested an immediate first run instead of waiting for the nightly schedule.
+`longhorn-backup-first-run-20260905` uses the generated nightly Job's command,
+service account, image and engine-binary mount, with explicit resource budgets.
+The image stays at the deployed 1.12.0 release to match the manager. It uses the
+existing nightly-b2 policy, including serial volume processing and retention.
+
+This ordinary GitOps Job runs once when synced, has no automatic retry, and
+has a two-hour deadline. It is not a recurring hook and has no TTL: retaining
+the terminal Job prevents ArgoCD from recreating it. The nightly CronJob's
+Forbid policy does not cover this standalone Job; check that no run is active
+before deploying it and observe completion before the next scheduled run.
+The first run was prepared with no active backup jobs and 5.68 GiB of reported
+Longhorn actual volume data, which is not an exact forecast of uploaded bytes.
+
+Verify its outcome and every volume's completed backup before removing the
+Job manifest and Kustomization entry in a later GitOps cleanup. To stop the
+one-time run, remove those same entries and let ArgoCD prune the Job; inspect
+engine backup status afterward, since stopping the runner does not prove every
+in-flight engine operation stopped. Preserve remote backup objects. A failed
+Job is evidence to investigate, not authorization for repeated retries.
 
 ## Rollback
 

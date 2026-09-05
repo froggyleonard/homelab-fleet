@@ -1,0 +1,67 @@
+# One requested preflight run using the existing nightly-b2 policy.
+# Keep this Job after completion: a TTL or hook deletion would allow auto-sync
+# to recreate it. Remove its manifest through GitOps after recording evidence.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: longhorn-backup-first-run-20260905
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: longhorn-backup-first-run
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '20'
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        recurring-job.longhorn.io: nightly-b2
+        app.kubernetes.io/name: longhorn-backup-first-run
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      containers:
+      - command:
+        - longhorn-manager
+        - -d
+        - recurring-job
+        - nightly-b2
+        - --manager-url
+        - http://longhorn-backend:9500/v1
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        image: docker.io/longhornio/longhorn-manager:v1.12.0
+        imagePullPolicy: IfNotPresent
+        name: nightly-b2
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: '2'
+            memory: 4Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/longhorn/engine-binaries/
+          name: engine-binaries
+      dnsPolicy: ClusterFirst
+      priorityClassName: longhorn-critical
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: longhorn-service-account
+      serviceAccountName: longhorn-service-account
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - hostPath:
+          path: /var/lib/longhorn/engine-binaries/
+          type: ''
+        name: engine-binaries
+  activeDeadlineSeconds: 7200
