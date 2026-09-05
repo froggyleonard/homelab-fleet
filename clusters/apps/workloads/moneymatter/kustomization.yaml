@@ -13,3 +13,15 @@ resources:
   - 09-backup.yaml
 generators:
   - ksops-generator.yaml
+# Hash-suffixed config makes metadata edits roll the frontend automatically.
+configMapGenerator:
+  - name: moneymatter-oauth-metadata
+    namespace: moneymatter
+    files:
+      - oauth-mcp.conf
+    options:
+      labels:
+        app.kubernetes.io/name: moneymatter
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: fleet
+        app.kubernetes.io/managed-by: argocd
