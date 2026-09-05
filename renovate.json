@@ -7,9 +7,9 @@
   ],
   "description": [
     "Task 024 \u2014 Renovate activation. Runner is the Mend hosted GitHub App.",
-    "Tier 1 = PRs open freely (leaf application images).",
-    "Tier 2 = dependencyDashboardApproval (control plane, CNI, databases, the",
-    "GitOps engine, platform Helm charts) \u2014 drift is reported, a human ticks a",
+    "All dependency updates require approval in the Dependency Dashboard.",
+    "Tier 2 keeps explicit approval rules for the control plane, CNI, databases, the",
+    "GitOps engine and platform Helm charts. Drift is reported; a human ticks a",
     "box to get a PR at all.",
     "Tier 3 = dashboard approval AND a CI guard: sops/uv carry a sibling",
     "_sha256 that a version-only bump leaves stale, so scripts/pin-guard.sh",
@@ -18,6 +18,10 @@
     "schedule limits when PRs may be raised, not when drift is discovered.",
     "automerge is deliberately set nowhere: every bump is a human merge."
   ],
+  "dependencyDashboardApproval": true,
+  "vulnerabilityAlerts": {
+    "dependencyDashboardApproval": true
+  },
   "timezone": "Etc/UTC",
   "schedule": [
     "* 0-6 * * *"
