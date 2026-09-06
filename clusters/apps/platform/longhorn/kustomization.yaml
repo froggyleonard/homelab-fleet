@@ -5,7 +5,8 @@ resources:
 - 01-netpol.yaml
 - 01b-node-netpol.yaml
 - 03-resource-defaults.yaml
-- 04-recurring-backup.yaml
+# OPS-74: omit during the one-day B2 pause; restore this entry to resume.
+# - 04-recurring-backup.yaml
 - 05-first-backup-job.yaml
 generators:
 - ksops-generator.yaml
