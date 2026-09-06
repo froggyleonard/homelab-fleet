@@ -50,6 +50,8 @@ spec:
       app.kubernetes.io/component: web
   template:
     metadata:
+      annotations:
+        tempo.froggyleonard.com/config-revision: "google-calendar-20260906"
       labels:
         app.kubernetes.io/name: tempo
         app.kubernetes.io/component: web
