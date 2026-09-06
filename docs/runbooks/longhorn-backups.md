@@ -6,7 +6,7 @@ Merging these manifests deploys them through ArgoCD auto-sync.
 
 ## Configuration and scope
 
-- Target: `s3://fleet-longhorn-backups@us-east-005/`; poll every 300 seconds.
+- Target: `s3://fleet-longhorn-backups@us-east-005/`; poll every 3600 seconds.
 - Endpoint: `https://s3.us-east-005.backblazeb2.com`.
 - Secret: `longhorn-system/longhorn-b2-backups`, encrypted with the apps cluster
   age recipient and rendered by KSOPS. It holds `AWS_ACCESS_KEY_ID`,
@@ -32,6 +32,54 @@ shared block retention and deletion. Preserve recovery access outside the
 cluster. Bucket settings and authenticated access remain rollout checks;
 valid ciphertext alone cannot prove either. B2's free storage allowance is
 shared across the account, not renewed for each bucket.
+
+## Transaction caps and catalog polling
+
+I poll the remote catalog hourly. Each scan can list volumes and backups and
+read their metadata, so one poll is many B2 transactions. Hourly polling reduces
+scheduled catalog scans from 288 to 24 per day compared with the initial
+300-second interval. This is a reduction in scheduled scans, not a guarantee
+of the same reduction in total requests: backup operations, retries and manual
+refreshes also use the API. Automatic discovery of remote changes can take up
+to an hour. The nightly backup schedule and retention remain independent.
+
+I check both the cap and backup health when cap emails arrive:
+
+1. In Backblaze **B2 Cloud Storage > Caps & Alerts**, record the Class B/C
+   limits and whether the email reports a warning or an exhausted cap. Check
+   the account's billing/payment status. Class B includes object reads and
+   metadata checks; Class C includes object listings. Limits apply across the
+   account, including other backup consumers.
+2. Check the target conditions and manager logs for `Transaction cap exceeded`.
+   An unavailable target means remote access is failing even if old backup
+   records still say `Completed`. Disabling email does not restore access.
+3. Confirm current pricing before changing account limits. As checked on
+   2026-09-06, Backblaze lists Class B/C transactions as free and announced
+   standard API fees ended on May 1, 2026. Its API documentation still describes
+   transaction caps for non-paying accounts. I resolve the account-specific
+   limit through Caps & Alerts or Backblaze support; I do not infer a new fee
+   or choose an arbitrary dollar cap from older pricing articles. Storage and
+   download-bandwidth limits are separate controls.
+4. After an authorized account correction and/or polling rollout, wait for a
+   successful poll: require `available=true`, an advancing `lastSyncedAt` and
+   no cap errors. Usage counters reset at 00:00 UTC; slower polling cannot
+   reset an already exhausted cap. Check the next nightly run and a full UTC
+   usage day before accepting the issue as resolved. Catalog access alone
+   does not prove a restore.
+
+The polling-only rollout changes the chart's default-resource ConfigMap;
+verify the live BackupTarget adopts `spec.pollInterval: 1h0m0s` after sync.
+It does not restart storage pods. If catalog discovery latency is unacceptable,
+revert `defaultBackupStore.pollInterval` to `300` through an authorized GitOps
+merge and confirm the live target returns to five minutes. Preserve the target,
+credentials and existing backups. Restoring frequent polling can reintroduce
+the transaction pressure.
+
+References: [B2 transaction pricing](https://www.backblaze.com/cloud-storage/transaction-pricing),
+[2026 pricing update](https://www.backblaze.com/blog/backblaze-pricing-and-product-updates/),
+[cap behavior](https://www.backblaze.com/docs/en/cloud-storage-data-caps-and-alerts),
+[cap management](https://www.backblaze.com/docs/cloud-storage-create-and-manage-caps-and-alerts),
+and [list API cap errors](https://www.backblaze.com/apidocs/b2-list-file-names).
 
 ## Rollout impact
 
