@@ -1,10 +1,16 @@
 # B2 quiet window (OPS-74)
 
-I prepared a 24-hour pause to test recovery from exhausted transaction caps.
-This is a temporary production change, pending authorization and coordinated
-host-timer pauses. The clock starts only when all consumers are paused. I record
-the actual UTC start and intended resume time in the private issue. Nothing in
-these manifests automatically resumes after 24 hours.
+I used a temporary cluster pause while resolving exhausted transaction caps.
+The normal configuration now restores HTTPS access, hourly polling and nightly
+recurrence. I verified catalog recovery after restoring HTTPS separately in
+[PR #123](https://github.com/froggyleonard/homelab-fleet/pull/123), before restoring
+the schedule. The next nightly coverage check and full-day observation remain
+acceptance gates; resumed configuration alone does not prove a restore.
+
+The procedure below is retained for a future explicitly authorized quiet window,
+not an instruction to pause the running backups. A coordinated 24-hour clock
+starts only when all consumers are verified paused. I record the actual UTC start
+and intended resume time in the private issue; there is no automatic resume.
 
 ## Cluster change
 
