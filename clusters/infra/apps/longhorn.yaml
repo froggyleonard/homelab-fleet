@@ -30,9 +30,8 @@ spec:
         defaultBackupStore:
           backupTarget: s3://fleet-longhorn-backups@us-east-005/
           backupTargetCredentialSecret: longhorn-b2-backups
-          # Temporary OPS-74 quiet window; resume hourly polling through GitOps.
-          # Zero disables the scheduled poller; the network policy also blocks retries.
-          pollInterval: 0
+          # Poll hourly to avoid unnecessary remote catalog scans.
+          pollInterval: 3600
   destination:
     # By registered cluster name (see manifests/apps-cluster-secret) — keeps
     # node addresses out of this public repo.
