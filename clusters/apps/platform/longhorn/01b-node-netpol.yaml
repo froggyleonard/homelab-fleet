@@ -1,7 +1,6 @@
 # All allows are in one policy to avoid installing a partial allow set.
 # Internal dynamic engine/replica ports stay inside longhorn-system. External
-# HTTPS is temporarily paused for OPS-74, including failed catalog retries.
-# API server, DNS and node ingress remain explicit.
+# HTTPS supports the B2 backupstore. API server, DNS and node ingress are explicit.
 # Node ports: iSCSI 3260, webhooks/recovery 9501-9503, UI/CSI probes 8000/9808,
 # share-manager 2049. Current PVCs are RWO. No host firewall is changed.
 apiVersion: cilium.io/v2
@@ -63,4 +62,9 @@ spec:
         protocol: UDP
       - port: '53'
         protocol: TCP
-  # OPS-74: restore the world TCP/443 rule after the quiet window.
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: '443'
+        protocol: TCP
