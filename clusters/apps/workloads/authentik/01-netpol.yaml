@@ -1,6 +1,7 @@
-# Default-deny; ingress to the server only from Traefik. Egress: DNS, shared
-# PG, and 443/80 out (OIDC discovery, avatars, CRLs). No redis — authentik
-# 2026.x runs its queue/cache on PostgreSQL.
+# Default-deny; ingress to the server only from Traefik. Chart pods retain
+# DNS, shared PostgreSQL and HTTP(S) egress. The new dedicated database is
+# isolated for operator-run restore; its backup remains suspended. Policies
+# are additive, so application egress must not select database/backup pods.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -42,12 +43,16 @@ kind: NetworkPolicy
 metadata:
   name: authentik-egress
   namespace: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
   labels:
     app.kubernetes.io/name: authentik
     app.kubernetes.io/part-of: fleet
     app.kubernetes.io/managed-by: argocd
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authentik
   policyTypes: [Egress]
   egress:
     - to:
@@ -76,4 +81,71 @@ spec:
         - port: 443
           protocol: TCP
         - port: 80
+          protocol: TCP
+---
+# The namespace's existing default-deny remains. This explicit DB policy also
+# keeps the first database activation isolated. A later cutover policy must
+# grant only the required app/backup ingress after the restore gates.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-postgres-deny
+  namespace: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: authentik-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authentik-postgres
+      app.kubernetes.io/component: db
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+# This pod is also denied ingress. Its only potential egress is DNS and the
+# dedicated DB; DB ingress is still denied until the later cutover policy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-postgres-backup
+  namespace: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: authentik-postgres
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authentik-postgres
+      app.kubernetes.io/component: backup
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authentik-postgres
+              app.kubernetes.io/component: db
+      ports:
+        - port: 5432
           protocol: TCP

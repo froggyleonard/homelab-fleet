@@ -1,8 +1,0 @@
-# Inert OPS-2 preparation: no active ArgoCD Application references this graph.
-# Moving these resources into an active graph is a separate rollout decision.
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - 01-netpol.yaml
-  - 03-postgres.yaml
-  - 07-backup.yaml
