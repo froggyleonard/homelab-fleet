@@ -8,5 +8,3 @@ metadata:
         path: ksops
 files:
   - 02-secrets.sops.yaml
-  # Operator creates this ciphertext before the activation diff can render.
-  - 02b-postgres-admin.sops.yaml
