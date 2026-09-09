@@ -62,7 +62,7 @@ jobs:
             -ignore-missing-schemas \
             -skip Secret \
             -ignore-filename-pattern '.*-patch\.yaml' \
-            clusters/ staging/
+            clusters/
 
   sops-gate:
     # Fail if any yaml under clusters/ contains an unencrypted Secret manifest

@@ -8,3 +8,5 @@ metadata:
         path: ksops
 files:
   - 02-secrets.sops.yaml
+  # Separately provisioned administrator; existing application credentials are preserved.
+  - 02b-postgres-admin.sops.yaml
