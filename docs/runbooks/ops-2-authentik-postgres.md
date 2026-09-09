@@ -48,7 +48,10 @@ identities, measured capacity, receipt IDs and recovery evidence remain private.
 If refresh fails while Authentik still uses its source, I prepare a GitOps rollback
 setting only `PGDATA` back to `/var/lib/postgresql/18/docker`. I verify the old
 PostgreSQL system identifier, accepted rehearsal content and source health after
-that rollout. Both directories, the claims and ciphertext remain intact. I do
+that rollout using the private helper's `verify-rollback` command and exact rollback
+revision. It permits the replacement pod UID while binding the original storage,
+system ID, administrator and attempt marker; a separate receipt preserves the old
+restore records. Both directories, the claims and ciphertext remain intact. I do
 not remove a partial final directory or replay initialization. A new attempt
 needs an inspected and reviewed recovery plan. After application writes reach
 the final database, this directory switch is no longer a data-safe rollback;
