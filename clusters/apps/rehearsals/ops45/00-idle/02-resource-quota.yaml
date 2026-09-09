@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ops45-stage-budget
+  namespace: ops45-restore
+  labels:
+    app.kubernetes.io/name: ops45-stage-budget
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-2'
+spec:
+  hard:
+    persistentvolumeclaims: '1'
+    requests.storage: 8Gi
+    pods: '1'

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "application": "ops45-restore",
+  "project": "ops45-restore",
+  "namespace": "ops45-restore",
+  "volume_namespace": "longhorn-system",
+  "idle_path": "clusters/apps/rehearsals/ops45/00-idle",
+  "unbound_backup_marker": "UNBOUND_BACKUP_SOURCE__STOP",
+  "stages": [
+    {
+      "name": "mealie",
+      "storage_path": "clusters/apps/rehearsals/ops45/10-mealie/00-storage",
+      "inspect_path": "clusters/apps/rehearsals/ops45/10-mealie/01-inspect",
+      "volume": "ops45-mealie-files",
+      "pv": "ops45-mealie-files",
+      "pvc": "ops45-mealie-files",
+      "pod": "ops45-mealie-files-inspect",
+      "size_gib": 5,
+      "replicas": 2,
+      "postgres_major": null,
+      "backup_source_required": true
+    },
+    {
+      "name": "tempo",
+      "storage_path": "clusters/apps/rehearsals/ops45/20-tempo/00-storage",
+      "inspect_path": "clusters/apps/rehearsals/ops45/20-tempo/01-inspect",
+      "volume": "ops45-tempo-db",
+      "pv": "ops45-tempo-db",
+      "pvc": "ops45-tempo-db",
+      "pod": "ops45-tempo-restore",
+      "size_gib": 5,
+      "replicas": 2,
+      "postgres_major": 18,
+      "backup_source_required": false
+    },
+    {
+      "name": "moneymatter",
+      "storage_path": "clusters/apps/rehearsals/ops45/30-moneymatter/00-storage",
+      "inspect_path": "clusters/apps/rehearsals/ops45/30-moneymatter/01-inspect",
+      "volume": "ops45-moneymatter-db",
+      "pv": "ops45-moneymatter-db",
+      "pvc": "ops45-moneymatter-db",
+      "pod": "ops45-moneymatter-restore",
+      "size_gib": 8,
+      "replicas": 2,
+      "postgres_major": 16,
+      "backup_source_required": false
+    }
+  ]
+}

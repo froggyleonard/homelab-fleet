@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ops45-restore
+  labels:
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: ops45-restore
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-2'
+spec:
+  description: Sequential isolated recovery rehearsal; explicit manual sync only.
+  sourceRepos:
+  - https://github.com/froggyleonard/homelab-fleet
+  destinations:
+  - name: apps
+    namespace: ops45-restore
+  - name: apps
+    namespace: longhorn-system
+  clusterResourceWhitelist:
+  - group: ''
+    kind: Namespace
+  - group: ''
+    kind: PersistentVolume
+  namespaceResourceWhitelist:
+  - group: ''
+    kind: PersistentVolumeClaim
+  - group: ''
+    kind: Pod
+  - group: networking.k8s.io
+    kind: NetworkPolicy
+  - group: longhorn.io
+    kind: Volume
+  - group: ''
+    kind: ResourceQuota

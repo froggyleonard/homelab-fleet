@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ops45-restore
+  labels:
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: ops45-restore
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-wave: '-3'
