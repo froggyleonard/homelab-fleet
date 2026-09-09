@@ -3,8 +3,9 @@
 I separate the final migration into three GitOps changes. The freeze changes only
 both Authentik Helm replica counts from one to zero while preserving the shared
 source host. The intervening [native backup gate](ops-2-authentik-backup-gate.md)
-captures the dedicated dump/globals pair for isolated recovery checks while both
-components remain frozen. The later cutover changes the host to
+captures the dedicated dump/globals pair and provides a separate read-only reader
+for isolated recovery checks while both components remain frozen. The later
+cutover changes the host to
 `authentik-postgres.authentik.svc.cluster.local`, restores one server and one
 worker, and permits only the intended app/backup connections to the dedicated DB.
 
@@ -206,10 +207,12 @@ restore never causes an import retry or a target reset.
 
 The native backup gate follows accepted isolated SQL/login checks and precedes
 cutover. It opens backup-only database access and runs a retained fixed Job with
-no retry and a 15-minute deadline. I accept its exact pair through the isolated
-restore and independent recovery gates while writers remain frozen. Cutover
-preserves this Job and its Kustomize reference unchanged, extending the same
-backup-only ingress policy to the intended application clients.
+no retry and a 15-minute deadline. A later-wave retained reader mounts the backup
+claim read-only after Job completion; both writers and reader use the same
+nonroot filesystem identity. I accept the exact pair through isolated restore
+and offsite readback while application writers remain frozen. Cutover preserves
+both the Job and reader and their Kustomize references unchanged, extending the
+same backup-only ingress policy to the intended application clients.
 
 The cutover restores the recorded replica counts of one each and changes only
 the PostgreSQL host in the connection settings. The new app egress and DB ingress
@@ -242,9 +245,14 @@ after rehearsal passes, then obtain authorization for the measured outage.
    login. The coordinator sees aggregate results only. Freeze both Authentik
    server and worker through their Helm GitOps values; wait for zero application
    sessions before the final consistent capture. Do not leave a worker writing.
-2. Retain a final complete source dump/globals set outside normal rotation, with
-   independently recoverable encrypted coverage and checksums. Restore the
-   final capture into the verified target after the explicit refresh gate.
+2. Retain a final complete source dump/globals set outside normal rotation with
+   checksums. Restore the final capture into the verified target after the
+   explicit refresh gate. While writers remain frozen, accept the native pair's
+   isolated restore, install the extended seat exporter, and export/submit the
+   complete generation. Verify that exact final pair through the ready offsite
+   reader before resuming application writers. This supplies encrypted recovery
+   coverage for the accepted frozen snapshot before cutover; the existing source
+   and its already verified historical offsite recovery remain retained throughout.
 3. Add DB ingress for only Authentik chart pods and the named backup component
    in the same namespace, plus matching app egress to the dedicated DB on 5432.
    Keep database egress denied. In the Authentik Helm values change only
@@ -266,8 +274,10 @@ after rehearsal passes, then obtain authorization for the measured outage.
    the shared archive. Its integration must preserve the target administrator:
    this target uses `POSTGRES_USER=postgres`, `POSTGRES_DB=postgres`, and explicit
    dump database `authentik`. Add both artifacts to the expected set. Verify local
-   publication, offsite snapshot membership, independent credentials and actual
-   restore; an in-cluster backup PVC alone is insufficient.
+   publication, exact offsite snapshot membership/readback and actual restore;
+   an in-cluster backup PVC alone is insufficient. Authentication from a separate
+   offline credential copy belongs to the wider recovery-custody work. Operational
+   readback through the existing offsite consumer does not claim that separate test.
 
 After healthy cutover, I retain the original Authentik database, role, secret,
 source instance and storage through the parent issue's multi-day healthy soak,
