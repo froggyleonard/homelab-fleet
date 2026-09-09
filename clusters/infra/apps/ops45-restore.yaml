@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/froggyleonard/homelab-fleet
     targetRevision: main
-    path: clusters/apps/rehearsals/ops45/10-mealie/04-remove-pv
+    path: clusters/apps/rehearsals/ops45/00-idle
   destination:
     name: apps
     namespace: ops45-restore
