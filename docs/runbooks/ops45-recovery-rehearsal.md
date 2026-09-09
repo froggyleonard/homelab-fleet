@@ -112,8 +112,9 @@ kind/label selector, global prune override or namespace deletion as a shortcut.
 Prune the scratch claim first while retaining its PV and Volume; observe claim
 deletion. Then prune its Retain PV; observe deletion and verify no claim or
 attachment remains. Finally prune only its named Longhorn Volume and observe its
-replicas disappear. Use reviewed intermediate Kustomize paths for these stages;
-no armed cleanup overlay is included in this preparation. Keep the Application,
+replicas disappear. The Mealie overlays `02-release-prune`, `03-remove-pvc`, `04-remove-pv` and
+`05-remove-volume` encode these individual steps. Do not skip a readback gate
+or combine their deletion stages into one sync. Keep the Application,
 namespace, policy and quota registered throughout. Return the child to `00-idle`
 only after the current storage inventory is empty and capacity is released.
 Stop if a finalizer or pruning error prevents progress; do not force deletion.
