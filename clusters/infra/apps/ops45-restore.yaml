@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/froggyleonard/homelab-fleet
     targetRevision: main
-    path: clusters/apps/rehearsals/ops45/10-mealie/02-release-prune
+    path: clusters/apps/rehearsals/ops45/10-mealie/03-remove-pvc
   destination:
     name: apps
     namespace: ops45-restore
