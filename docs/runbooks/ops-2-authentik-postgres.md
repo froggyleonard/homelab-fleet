@@ -1,8 +1,10 @@
 # OPS-2: Authentik final capture and database cutover
 
-I separate the final migration into two GitOps changes. The freeze changes only
+I separate the final migration into three GitOps changes. The freeze changes only
 both Authentik Helm replica counts from one to zero while preserving the shared
-source host. The later cutover changes the host to
+source host. The intervening [native backup gate](ops-2-authentik-backup-gate.md)
+captures the dedicated dump/globals pair for isolated recovery checks while both
+components remain frozen. The later cutover changes the host to
 `authentik-postgres.authentik.svc.cluster.local`, restores one server and one
 worker, and permits only the intended app/backup connections to the dedicated DB.
 
@@ -193,7 +195,7 @@ explicitly in the later cutover procedure. This refresh preserves the rehearsal
 copy in its original directory; acceptance requires the retained-data checks above.
 No source reset or implicit database replacement is part of the procedure.
 
-## Applying the two final slices
+## Applying the final slices
 
 The freeze is independently reviewable: `server.replicas: 0` and
 `worker.replicas: 0`, with the host still `postgres.postgres.svc.cluster.local`.
@@ -201,6 +203,13 @@ I wait for both desired and live counts to reach zero, no server/worker pods and
 no Authentik source sessions before the final capture. The existing restore
 helper must accept that frozen source and the exact refreshed target. A failed
 restore never causes an import retry or a target reset.
+
+The native backup gate follows accepted isolated SQL/login checks and precedes
+cutover. It opens backup-only database access and runs a retained fixed Job with
+no retry and a 15-minute deadline. I accept its exact pair through the isolated
+restore and independent recovery gates while writers remain frozen. Cutover
+preserves this Job and its Kustomize reference unchanged, extending the same
+backup-only ingress policy to the intended application clients.
 
 The cutover restores the recorded replica counts of one each and changes only
 the PostgreSQL host in the connection settings. The new app egress and DB ingress
