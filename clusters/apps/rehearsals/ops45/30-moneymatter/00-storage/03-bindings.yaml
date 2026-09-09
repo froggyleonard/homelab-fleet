@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ops45-moneymatter-db
+  labels:
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: ops45-moneymatter-db
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-wave: '1'
+spec:
+  capacity:
+    storage: 8Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  claimRef:
+    namespace: ops45-restore
+    name: ops45-moneymatter-db
+  csi:
+    driver: driver.longhorn.io
+    fsType: ext4
+    volumeHandle: ops45-moneymatter-db
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ops45-moneymatter-db
+  labels:
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: ops45-moneymatter-db
+  namespace: ops45-restore
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-wave: '2'
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: ops45-moneymatter-db
+  resources:
+    requests:
+      storage: 8Gi

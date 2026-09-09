@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ops45-restore
+  labels:
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: ops45-restore
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-1'
+spec:
+  project: ops45-restore
+  source:
+    repoURL: https://github.com/froggyleonard/homelab-fleet
+    targetRevision: main
+    path: clusters/apps/rehearsals/ops45/00-idle
+  destination:
+    name: apps
+    namespace: ops45-restore

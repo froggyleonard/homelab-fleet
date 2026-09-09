@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ops45-mealie-files
+  labels:
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: ops45-mealie-files
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-wave: '1'
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  claimRef:
+    namespace: ops45-restore
+    name: ops45-mealie-files
+  csi:
+    driver: driver.longhorn.io
+    fsType: ext4
+    volumeHandle: ops45-mealie-files
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ops45-mealie-files
+  labels:
+    app.kubernetes.io/part-of: ops45-restore
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/name: ops45-mealie-files
+  namespace: ops45-restore
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-wave: '2'
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: ops45-mealie-files
+  resources:
+    requests:
+      storage: 5Gi
