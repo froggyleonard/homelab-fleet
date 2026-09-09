@@ -1,9 +1,9 @@
-# First activation of Authentik's isolated dedicated PostgreSQL instance.
+# Authentik's isolated dedicated PostgreSQL, prepared for the final refresh.
 # The 18.6-trixie image/digest was verified against Docker Hub on 2026-09-08.
 # Only the bootstrap postgres role/database is created automatically.
 # Application-role import and data restoration remain operator-run gates.
 #
-# Prerequisite: the operator provisions authentik-postgres-admin/password.
+# Prerequisite: retain the existing authentik-postgres-admin/password Secret.
 # It is a distinct administrative credential, not Authentik's application role.
 apiVersion: v1
 kind: Service
@@ -89,10 +89,11 @@ spec:
                 secretKeyRef:
                   name: authentik-postgres-admin
                   key: password
-            # PostgreSQL 18 image layout: mount the parent so version-specific
-            # data remains under the volume, including during future upgrades.
+            # Initialize a fresh cluster beside the retained rehearsal directory.
+            # Preflight must prove ops2-final is absent and storage has headroom.
+            # Rollback while the app stays on its source: restore 18/docker.
             - name: PGDATA
-              value: /var/lib/postgresql/18/docker
+              value: /var/lib/postgresql/18/ops2-final
           ports:
             - name: postgres
               containerPort: 5432
