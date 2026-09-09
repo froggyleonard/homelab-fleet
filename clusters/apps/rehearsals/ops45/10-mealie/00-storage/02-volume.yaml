@@ -22,4 +22,4 @@ spec:
   revisionCounterDisabled: true
   backupTargetName: default
   restoreVolumeRecurringJob: disabled
-  fromBackup: UNBOUND_BACKUP_SOURCE__STOP
+  fromBackup: s3://fleet-longhorn-backups@us-east-005/?backup=backup-e495be5e229c4fe0&volume=pvc-b66752e5-50c6-48fe-93c9-0acc26b74958

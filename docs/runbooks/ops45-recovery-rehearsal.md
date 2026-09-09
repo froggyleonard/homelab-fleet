@@ -7,7 +7,7 @@ credential custody, content baselines, receipts and concrete authorizations.
 
 The dedicated `ops45-restore` AppProject and manual child Application live under
 `clusters/infra/apps/`. The root discovers their registration after an authorized
-merge. The child initially points at `clusters/apps/rehearsals/ops45/00-idle`;
+merge. The child initially points at the reviewed file-recovery `00-storage` stage;
 it has no automated sync and no deletion finalizer. An idle sync creates only
 the protected scratch namespace, deny-all policy and stage ResourceQuota.
 
@@ -38,10 +38,8 @@ pressure, backup activity and target availability. The table excludes temporary,
 snapshot, engine and cache overhead. No workload tolerates a reduced replica count
 to make this rehearsal fit.
 
-The file Volume's `fromBackup` deliberately contains the nonempty marker
-`UNBOUND_BACKUP_SOURCE__STOP`. **Do not deploy that storage stage.** Bind an exact
-verified completed backup URL in a reviewed GitOps change before any file-volume
-sync; the private preflight must reject the marker, an empty value, a changed
+The file Volume's `fromBackup` is bound to a verified completed backup URL.
+Before each new rehearsal, refresh that exact source in a reviewed GitOps change; the private preflight must reject the marker, an empty value, a changed
 source identity or an unresolved URL. Never replace it with an empty string: that
 would create an empty volume instead of restoring files. Record the immutable
 source and Git revision privately, without putting source identifiers in this

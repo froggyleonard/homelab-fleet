@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/froggyleonard/homelab-fleet
     targetRevision: main
-    path: clusters/apps/rehearsals/ops45/00-idle
+    path: clusters/apps/rehearsals/ops45/10-mealie/00-storage
   destination:
     name: apps
     namespace: ops45-restore
