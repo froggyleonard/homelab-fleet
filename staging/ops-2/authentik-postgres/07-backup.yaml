@@ -1,4 +1,4 @@
-# Native backup scaffold. This CronJob stays suspended until the
+# Inert native backup preparation. This CronJob stays suspended until the
 # restored DB, restricted network access and backup/restore gates are proven.
 # The operational backup PVC does not replace the seat's disaster backup.
 #
