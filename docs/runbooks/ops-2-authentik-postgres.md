@@ -1,16 +1,23 @@
-# OPS-2: prepare Authentik's dedicated PostgreSQL
+# OPS-2: activate Authentik's isolated PostgreSQL
 
 I am moving Authentik off the shared PostgreSQL instance before n8n, preserving
-its database, login role and SSO identities. This first preparation slice is
-tracked in OPS-88 under OPS-2. It does not perform a migration.
+its database, login role and SSO identities. This first activation package
+integrates the database prepared in OPS-88. It does not switch application
+traffic or restore production data.
 
-The proposed resources live in
-[`staging/ops-2/authentik-postgres`](../../staging/ops-2/authentik-postgres/).
-No ArgoCD Application or active Kustomization references that directory. The
-StatefulSet has zero replicas, the backup CronJob is suspended, and the database
-has no inbound network allowance. I have not created the administrator Secret.
-Publishing this preparation cannot start the database or change Authentik's
-connection. I must prepare and authorize the activation change separately.
+The database and suspended backup now belong to the existing
+[`authentik` workload Kustomization](../../clusters/apps/workloads/authentik/kustomization.yaml),
+managed by the existing `authentik-config` Application. The StatefulSet requests
+one replica. Merging this package therefore starts the dedicated database and
+allocates its storage through ArgoCD. The database has no network ingress or
+egress, and Authentik keeps its current shared-database connection.
+
+The operator-created administrator ciphertext
+`02b-postgres-admin.sops.yaml` is included in the KSOPS generator. It passed
+constrained MAC/decryption validation with its exact Secret identity and key
+shape, unchanged recipient set and unchanged original application ciphertext.
+The full KSOPS graph renders successfully; decrypted values remain in memory.
+Activation still requires authorization for this exact rollout.
 
 ## Preflight evidence
 
@@ -22,9 +29,11 @@ before activation; the public GitOps manifests alone do not establish readiness.
 
 The target data and operational-backup claims each request 5 GiB explicitly
 from Longhorn. I verify available capacity, requested and actual replicas,
-existing storage health and workload resource use before starting them. I also
-verify independently recoverable native dump/globals backups and an actual
-restore. An intact compressed archive alone does not establish recoverability.
+existing storage health and workload resource use before starting them. I verify
+current native dump/globals backup coverage and preserve the shared source.
+Before application cutover, I also require an actual isolated restore and
+independently recoverable backups. An intact compressed archive alone does not
+establish recoverability.
 
 ## Image and role boundary
 
@@ -36,11 +45,13 @@ while preserving the Authentik chart/image at 2026.5.6. I use a logical restore
 onto a fresh volume, not a physical copy or an in-place source upgrade.
 The target mounts `/var/lib/postgresql` with explicit
 `PGDATA=/var/lib/postgresql/18/docker`, following the PostgreSQL 18 image layout.
+Initdb explicitly requires SCRAM on every TCP connection, including loopback;
+local socket administration is confined to the pod-exec boundary.
 
-The target bootstrap role and database are both `postgres`. I must supply a
+The target bootstrap role and database are both `postgres`. I supplied a
 new namespace-local, SOPS-managed `authentik-postgres-admin` Secret with key
-`password` through the user-operated credential procedure before activation.
-There is intentionally no plaintext placeholder or generated credential here.
+`password` through the user-operated credential procedure.
+Only the encrypted administrator artifact is committed; no plaintext credential is present.
 The existing `authentik-secrets` password and secret key remain unchanged.
 
 I do not bootstrap with `POSTGRES_USER=authentik`: the image would make the app
@@ -48,42 +59,68 @@ a superuser. I restore the existing Authentik role with its original attributes,
 password verifier and required settings before restoring its database. The new
 admin credential must not be overwritten by the shared instance's globals.
 
-## Preparation and activation boundaries
+## Activation package and remaining gates
 
-The staged policy named `authentik-egress` replaces the existing policy of that
-name during a later GitOps integration; it narrows its selector to Authentik
-chart pods while preserving their current destinations. Database and backup
-pods use the distinct `authentik-postgres` name label. Simply adding a second
-restrictive policy cannot subtract the current namespace-wide egress allowance.
+The existing `authentik-egress` policy now selects only Authentik chart pods,
+while preserving their existing destinations. Database and backup pods use the
+distinct `authentik-postgres` name label. The namespace default-deny and server
+Traefik ingress remain in place. Policies are additive: an extra restrictive
+policy cannot subtract a namespace-wide egress allowance. The narrowed app
+egress and new database/backup policies use ArgoCD sync wave `-1`, ahead of
+the default-wave StatefulSet, so the policy updates precede pod creation. The
+namespace uses wave `-2`, allowing the same ordering during fresh-namespace
+recovery.
 
-Before activating the first database pod, I prepare a reviewed integration diff:
+This package moves the database and backup resources into the existing workload
+graph. It creates no second Application, changes no chart values or source
+connection, and grants no database ingress. The backup CronJob remains suspended.
+Only the target's bootstrap `postgres` role/database is initialized; application
+role creation and database restoration are separate operator-run steps.
 
-1. Move the staged database and backup resources into the existing Authentik
-   workload Kustomization, replace its existing egress policy, and retain the
-   namespace's default-deny policy. Use the existing `authentik-config`
-   Application and AppProject permissions; do not create a second reconciler.
-2. Add the encrypted administrator Secret and KSOPS reference after the operator
-   has created the credential. Validate it through the constrained SOPS helper,
-   without printing any value, identity or decrypted manifest.
-3. Set only the dedicated database StatefulSet to one replica. Leave the backup
-   job suspended, application connection unchanged, and database ingress denied.
-   Local pod-exec restore access remains the administrative path. No cloned
-   Authentik worker/server is started in this step.
-4. Render, validate and review that exact diff. Merge only with explicit rollout
-   authorization. After sync, verify fresh claim identity, healthy replicas,
-   server readiness, source health and unchanged live SSO.
+Before I merge the activation change:
 
-The integration, credential entry and activation are outstanding work, not
-changes already included in this preparation. No imperative apply is the
-deployment procedure. I do not delete or modify source data, roles, backups,
-services, tenant-init configuration or the local disk at this stage.
+1. Administrator provisioning for this package is complete. I created the new
+   ciphertext myself with the reviewed private
+   `scripts/provision-authentik-db-admin.py` in a protected worktree. I retain
+   that existing artifact and do not rerun credential generation for this
+   package. The helper used the existing recipient set and left the application
+   credential unchanged.
+2. The new ciphertext must be at
+   `clusters/apps/workloads/authentik/02b-postgres-admin.sops.yaml`, already
+   referenced by the KSOPS generator. I validate its MAC, exact Secret identity,
+   key shape and recipient set through the constrained SOPS procedure. I verify
+   the existing Authentik ciphertext remains unchanged. A synthetic helper test
+   does not establish real cryptographic validity.
+3. I refresh the private source-health, capacity, storage and recovery evidence.
+   I render the complete KSOPS graph without exposing decrypted output, validate
+   the full policy union and Kubernetes schemas, and perform dry-run admission.
+   I review the exact diff and obtain explicit authorization for this rollout.
+4. After ArgoCD sync, I verify the data claim identity, two healthy data
+   replicas, readiness and unchanged source health/SSO. I verify the backup
+   claim when it is first mounted, before accepting backup coverage. The target must contain
+   only its bootstrap database/role and remain unreachable from application or
+   backup pods. Local pod-exec access is the administrative restore path. I start
+   no cloned Authentik server or worker during this activation.
+
+The isolated database and operational-backup claim each request 5 GiB from the
+explicit Longhorn class. Both claim declarations have `Prune=false,Delete=false`;
+StatefulSet claim retention is `Retain` for deletion and scaling. To roll back
+this first activation, I set only the dedicated StatefulSet to zero replicas
+through GitOps and retain its claims and encrypted administrator Secret. I verify
+Authentik still uses the source. Claim deletion and credential removal are
+separate actions, not implicit parts of rollback.
+
+No imperative apply is the deployment procedure. I do not modify source data,
+roles, backups, services, tenant-init configuration or the local disk in this
+package. Production restoration, application cutover and backup enablement stay
+behind their own gates below.
 
 ## Restore rehearsal gate
 
-Before any production switch, I prepare and test the operator-run capture/import
-helper against synthetic credentials and an isolated PostgreSQL instance. That
-helper is not supplied by this manifest preparation. It must enforce these
-contracts and stop on a mismatch:
+Before any production switch, I test the reviewed private operator-run
+capture/import helper against synthetic credentials and an isolated PostgreSQL
+instance. Preparing that tooling does not perform a production import. It must
+enforce these contracts and stop on a mismatch:
 
 - Capture a fresh `pg_dump -Fc` of Authentik plus complete shared globals into
   private mode-0600 recovery storage with a manifest and checksums. Keep complete
@@ -102,7 +139,10 @@ contracts and stop on a mismatch:
   target, then restore the custom database archive with
   `pg_restore --exit-on-error --create` connected initially to `postgres`.
   Preserve the source encoding, locale, owner and ACLs. Use the pinned 18.6
-  client and analyze after restoration. Never use `--clean` against the source.
+  restore client and analyze after restoration. Capture deliberately uses the
+  matching source-major/minor client already in the source pod; the helper
+  records/checks its version. I test that exact same-major export/restore pair
+  before accepting this exception. Never use `--clean` against the source.
 - The target already contains the bootstrap `postgres` role. Exclude its
   CREATE/ALTER statements explicitly. Do not disable error handling to hide
   duplicate-role errors, import unrelated Sure/Plane/n8n roles, or replace the
@@ -196,20 +236,22 @@ final database and globals backups outside rotation, verify all references and
 backup manifests, and run clean Terraform validation. That destructive change
 requires separate explicit authorization and its own storage rollback limits.
 
-## Preparation validation
+## Validation boundaries
 
-The eight-resource Kustomize graph renders and passes strict kubeconform checks
-with no skipped rendered resources. All eight objects pass the live apps API's
-server-side dry-run admission. The checked policy union includes the existing
-namespace policies: chart app egress stays available, database ingress/egress
-is empty, and the backup can only attempt DNS and its own database. No active
-root references this preparation, and no Secret object is included. CI now
-checks the staging manifests alongside the existing cluster manifests.
+The supplied administrator ciphertext passed constrained SOPS MAC/decryption
+validation, exact identity/key-shape checks and recipient preservation checks.
+The complete activation graph renders 14 resources. All 13 built-in resources,
+including both Secrets, pass strict schema checks; all 12 nonsecret resources,
+including the IngressRoute, pass server-side dry-run admission. Decrypted values
+remain in process memory. Policy-union and retained-storage checks pass.
+The private task record holds operational evidence and remaining rollout gates.
 
-Independent review and synthetic execution of the backup shell body verify
-complete publication, private artifact modes, relative manifest paths,
-seven-run retention, and preservation of the previous current generation
-when globals export, role coverage, dump or archive validation fails. These
-checks use fake PostgreSQL clients; they do not establish actual runtime,
-restore or performance acceptance. Runtime startup remains untested because
-no target or credential was created.
+The backup shell's synthetic tests cover complete publication, private artifact
+modes, relative manifest paths and checksums, current-protected seven-run
+retention, and preservation of the previous generation when globals export,
+completion-trailer, role coverage, dump or archive validation fails. The private
+provisioning helper uses mocked SOPS and synthetic passwords in its dedicated
+tests. These checks establish neither actual restore nor runtime performance.
+Post-sync identity, storage, readiness and source-health checks remain required
+before claiming activation complete. Production restore and application cutover
+retain their separate acceptance gates.
