@@ -1,6 +1,6 @@
 # Default-deny; ingress to the server only from Traefik. Chart pods retain
-# DNS, shared PostgreSQL and HTTP(S) egress. The new dedicated database is
-# isolated for operator-run restore; its backup remains suspended. Policies
+# DNS, retained-source PostgreSQL and HTTP(S) egress. Dedicated DB access is
+# limited to the chart server/worker and backup; its job stays suspended. Policies
 # are additive, so application egress must not select database/backup pods.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -83,9 +83,8 @@ spec:
         - port: 80
           protocol: TCP
 ---
-# The namespace's existing default-deny remains. This explicit DB policy also
-# keeps the first database activation isolated. A later cutover policy must
-# grant only the required app/backup ingress after the restore gates.
+# The namespace default-deny and this DB baseline remain. Only the separate
+# ingress policy below adds client access; no policy grants DB egress.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -107,8 +106,8 @@ spec:
   ingress: []
   egress: []
 ---
-# This pod is also denied ingress. Its only potential egress is DNS and the
-# dedicated DB; DB ingress is still denied until the later cutover policy.
+# Backup pods remain denied ingress. Their only egress is DNS and the
+# dedicated DB, matching the scoped DB ingress below. The job stays suspended.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -146,6 +145,75 @@ spec:
             matchLabels:
               app.kubernetes.io/name: authentik-postgres
               app.kubernetes.io/component: db
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# Both selectors constrain dedicated-DB access to the existing chart instance's
+# server and worker pods in this namespace. Source egress stays for rollback.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-postgres-app-egress
+  namespace: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: authentik
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authentik
+      app.kubernetes.io/instance: authentik
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [server, worker]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authentik-postgres
+              app.kubernetes.io/component: db
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authentik-postgres-ingress
+  namespace: authentik
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: authentik-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authentik-postgres
+      app.kubernetes.io/component: db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authentik
+              app.kubernetes.io/instance: authentik
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [server, worker]
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authentik-postgres
+              app.kubernetes.io/component: backup
       ports:
         - port: 5432
           protocol: TCP
