@@ -8,7 +8,5 @@ resources:
   - 04-deployment.yaml
   - 05-ingressroute.yaml
   - 07-backup.yaml
-  - 08-backup-gate.yaml
-  - 08b-reader.yaml
 generators:
   - ksops-generator.yaml
