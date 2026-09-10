@@ -9,7 +9,7 @@ metadata:
   name: authentik-pg-backup-ops2-final-gate
   namespace: authentik
   annotations:
-    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-options: Prune=true,Delete=true
   labels:
     app.kubernetes.io/name: authentik-postgres
     app.kubernetes.io/component: backup
