@@ -83,6 +83,45 @@ and [list API cap errors](https://www.backblaze.com/apidocs/b2-list-file-names).
 
 ## Rollout impact
 
+### Replica rebuilding for intermittent backup PVCs
+
+I enable `defaultSettings.offlineReplicaRebuilding` through the pinned chart
+Application. Short database-dump and recurring-backup consumers can detach a
+volume while its replacement replica is still starting or rebuilding. The
+offline controller keeps its own frontend-disabled attachment until rebuilding
+completes, then detaches the volume. A workload attachment can interrupt offline
+rebuilding and take ownership normally.
+
+This is a cluster-wide setting for volumes whose `spec.offlineRebuilding` is
+`ignored`; explicit per-volume overrides take precedence. Before merging, I
+inventory every eligible detached volume, current healthy replicas, storage
+allocation, available disk space and active rebuilds. I preserve the existing
+replica count, anti-affinity, rebuild concurrency, image/chart pins, backup
+schedules, retention and credentials. Rebuilding consumes local disk/network
+I/O and allocation for the missing replicas; it does not create an off-site
+backup or prove a database restore.
+
+For OPS-86, I record the original volume and retained replica identities for
+the Mealie, SparkyFitness, Tempo and MoneyMatter PostgreSQL backup claims in
+private evidence. I require all four volumes to reach two healthy RW engine
+replicas on separate workers, preserve the original replica and return to an
+idle detached state with both healthy replica records. Detached `unknown`
+robustness alone is neither acceptance nor failure. I then verify the natural
+database dump jobs and recurring Longhorn backups, including successful
+reattachment and detachment without another interrupted rebuild. Existing
+remote recovery points and application data volumes remain intact.
+
+To roll back this policy, I first inspect active rebuilds and consumers and
+prepare a GitOps change explicitly setting `offlineReplicaRebuilding: false`.
+Simply removing the value can leave the previously applied setting in place.
+Disabling the setting removes offline-rebuild attachment tickets and can stop
+an in-progress rebuild, so I let a healthy progressing rebuild finish first.
+I never delete a retained replica, force-detach an active writer, or uninstall
+Longhorn as rollback. Completed replacement replicas are retained.
+
+References: [offline replica rebuilding](https://longhorn.io/docs/1.12.0/advanced-resources/rebuilding/offline-replica-rebuilding/)
+and [customizing settings with Helm](https://longhorn.io/docs/1.12.0/advanced-resources/deploy/customizing-default-settings/#using-helm).
+
 The existing Longhorn chart/image versions stay pinned. Rendering the old and
 new chart values changes only the default-resource and default-setting
 ConfigMaps, not workload pod templates. The first backup uploads used data;
