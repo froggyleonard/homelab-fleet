@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: fleet
     app.kubernetes.io/managed-by: argocd
 spec:
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate # RWO volume
   selector:
@@ -40,7 +40,7 @@ spec:
             - name: DB_TYPE
               value: postgresdb
             - name: DB_POSTGRESDB_HOST
-              value: postgres.postgres.svc.cluster.local
+              value: n8n-postgres.n8n.svc.cluster.local
             - name: DB_POSTGRESDB_PORT
               value: "5432"
             - name: DB_POSTGRESDB_DATABASE
