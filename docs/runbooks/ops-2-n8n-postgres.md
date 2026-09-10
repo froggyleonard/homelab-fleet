@@ -92,8 +92,8 @@ publication bindings. The dedicated target administrator remains distinct and
 unchanged. After the final single target import, I verify those same acceptance
 bindings while application writers are still stopped.
 
-A later reviewed gate adds only the backup-to-database ingress needed for a
-fixed native capture and retained reader. I restore that exact dump/globals pair,
+The [native backup gate](ops-2-n8n-backup-gate.md) adds only the backup-to-database
+ingress needed for a fixed native capture and retained reader. I restore that exact dump/globals pair,
 verify the complete extended seat export and its exact offsite bytes, and retain
 independent recovery evidence before application cutover. Any temporary Job and
 reader are retained until their evidence is accepted; cleanup releases their

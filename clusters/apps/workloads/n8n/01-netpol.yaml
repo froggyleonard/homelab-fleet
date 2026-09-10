@@ -166,3 +166,34 @@ spec:
       ports:
         - port: 5432
           protocol: TCP
+
+---
+# This gate permits only the native backup after the accepted final import.
+# The application remains frozen on its source; DB egress remains denied.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: n8n-postgres-ingress
+  namespace: n8n
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: n8n-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: n8n-postgres
+      app.kubernetes.io/component: db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: n8n-postgres
+              app.kubernetes.io/component: backup
+      ports:
+        - port: 5432
+          protocol: TCP
