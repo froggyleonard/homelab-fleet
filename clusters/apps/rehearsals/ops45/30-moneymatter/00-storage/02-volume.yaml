@@ -12,7 +12,7 @@ metadata:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
     argocd.argoproj.io/sync-wave: '0'
 spec:
-  size: '8589934592'
+  size: '5368709120'
   numberOfReplicas: 2
   frontend: blockdev
   dataEngine: v1

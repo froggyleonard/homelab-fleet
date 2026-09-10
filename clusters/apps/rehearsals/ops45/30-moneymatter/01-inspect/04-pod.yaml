@@ -31,6 +31,7 @@ spec:
     args:
     - |
       umask 077
+      test ! -e "$PGDATA/PG_VERSION" || exit 30
       if [ ! -s "$PGDATA/PG_VERSION" ]; then
         initdb -D "$PGDATA" --username=ops45_admin --auth-local=trust --auth-host=reject >/dev/null 2>&1
       fi
@@ -44,6 +45,10 @@ spec:
         -c log_statement=none -c log_min_error_statement=panic \
         -c log_parameter_max_length_on_error=0 >/dev/null 2>&1
     env:
+    - name: POD_UID
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.uid
     - name: PGDATA
       value: /var/lib/postgresql/data/pgdata
     securityContext:

@@ -31,7 +31,13 @@
       "size_gib": 5,
       "replicas": 2,
       "postgres_major": 18,
-      "backup_source_required": false
+      "backup_source_required": false,
+      "cleanup_paths": [
+        "clusters/apps/rehearsals/ops45/20-tempo/02-release-prune",
+        "clusters/apps/rehearsals/ops45/20-tempo/03-remove-pvc",
+        "clusters/apps/rehearsals/ops45/20-tempo/04-remove-pv",
+        "clusters/apps/rehearsals/ops45/20-tempo/05-remove-volume"
+      ]
     },
     {
       "name": "moneymatter",
@@ -41,10 +47,16 @@
       "pv": "ops45-moneymatter-db",
       "pvc": "ops45-moneymatter-db",
       "pod": "ops45-moneymatter-restore",
-      "size_gib": 8,
+      "size_gib": 5,
       "replicas": 2,
       "postgres_major": 16,
-      "backup_source_required": false
+      "backup_source_required": false,
+      "cleanup_paths": [
+        "clusters/apps/rehearsals/ops45/30-moneymatter/02-release-prune",
+        "clusters/apps/rehearsals/ops45/30-moneymatter/03-remove-pvc",
+        "clusters/apps/rehearsals/ops45/30-moneymatter/04-remove-pv",
+        "clusters/apps/rehearsals/ops45/30-moneymatter/05-remove-volume"
+      ]
     }
   ]
 }

@@ -12,5 +12,5 @@ metadata:
 spec:
   hard:
     persistentvolumeclaims: '1'
-    requests.storage: 8Gi
+    requests.storage: 5Gi
     pods: '1'

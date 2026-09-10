@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../00-storage
+patches:
+- target:
+    group: ''
+    version: v1
+    kind: PersistentVolumeClaim
+    name: ops45-tempo-db
+    namespace: ops45-restore
+  patch: |-
+    - op: test
+      path: /metadata/annotations/argocd.argoproj.io~1sync-options
+      value: Prune=false,Delete=false
+    - op: replace
+      path: /metadata/annotations/argocd.argoproj.io~1sync-options
+      value: Delete=false
+- target:
+    group: ''
+    version: v1
+    kind: PersistentVolume
+    name: ops45-tempo-db
+  patch: |-
+    - op: test
+      path: /metadata/annotations/argocd.argoproj.io~1sync-options
+      value: Prune=false,Delete=false
+    - op: replace
+      path: /metadata/annotations/argocd.argoproj.io~1sync-options
+      value: Delete=false
+- target:
+    group: 'longhorn.io'
+    version: v1beta2
+    kind: Volume
+    name: ops45-tempo-db
+    namespace: longhorn-system
+  patch: |-
+    - op: test
+      path: /metadata/annotations/argocd.argoproj.io~1sync-options
+      value: Prune=false,Delete=false
+    - op: replace
+      path: /metadata/annotations/argocd.argoproj.io~1sync-options
+      value: Delete=false
