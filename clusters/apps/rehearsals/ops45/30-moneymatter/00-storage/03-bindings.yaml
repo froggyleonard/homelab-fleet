@@ -11,7 +11,7 @@ metadata:
     argocd.argoproj.io/sync-wave: '1'
 spec:
   capacity:
-    storage: 8Gi
+    storage: 5Gi
   volumeMode: Filesystem
   accessModes:
   - ReadWriteOnce
@@ -44,4 +44,4 @@ spec:
   volumeName: ops45-moneymatter-db
   resources:
     requests:
-      storage: 8Gi
+      storage: 5Gi

@@ -7,7 +7,7 @@ credential custody, content baselines, receipts and concrete authorizations.
 
 The dedicated `ops45-restore` AppProject and manual child Application live under
 `clusters/infra/apps/`. The root discovers their registration after an authorized
-merge. The child initially points at the reviewed file-recovery `00-storage` stage;
+merge. The child points at the reviewed `00-idle` stage;
 it has no automated sync and no deletion finalizer. An idle sync creates only
 the protected scratch namespace, deny-all policy and stage ResourceQuota.
 
@@ -19,12 +19,12 @@ All paths below are relative to `clusters/apps/rehearsals/ops45/`.
 | --- | --- | --- | --- |
 | File recovery | `10-mealie/00-storage` | `10-mealie/01-inspect` | 5 GiB |
 | PostgreSQL 18 | `20-tempo/00-storage` | `20-tempo/01-inspect` | 5 GiB |
-| PostgreSQL 16 | `30-moneymatter/00-storage` | `30-moneymatter/01-inspect` | 8 GiB |
+| PostgreSQL 16 | `30-moneymatter/00-storage` | `30-moneymatter/01-inspect` | 5 GiB |
 
 The [machine-readable inventory](ops45-rehearsal-stages.json) is the exact
 resource-name contract. Each storage path includes the idle resources and one
 Longhorn Volume, static Retain PV and prebound PVC. Each consumer path adds one
-pod. The namespace quota permits one PVC, 8 GiB of requests and one pod. It is
+pod. The namespace quota permits one PVC, 5 GiB of requests and one pod. It is
 an extra admission check, not a guarantee that old Longhorn Volume CRs have
 been deleted: those objects live in `longhorn-system` outside this quota.
 
@@ -62,7 +62,7 @@ verified off-site dump/globals pairs through the bounded private recovery client
    isolation and bindings before sending any database input. Restore globals
    before the matching custom archive; use
    the distinct `ops45_admin` bootstrap role and reject conflicts or prior data.
-   Preserve SQL output in private bounded logs and never retry a partial import.
+   Suppress SQL diagnostics, retain sanitized receipts, and never retry a partial import.
 4. Validate file content against the selected backup's baseline, or database
    schema, representative contents, roles, grants and original-credential login.
    A process exit, successful dump or archive listing alone is insufficient.
@@ -78,8 +78,10 @@ Database server stdout/stderr are suppressed because failing globals statements
 can contain password hashes; private sanitized receipts own diagnostics.
 
 Each pod expires after 24 hours, uses `restartPolicy: Never`, runs without root,
-drops capabilities and has a read-only root filesystem. A failed or expired pod
-does not authorize an automatic replacement/import. Database requests are
+drops capabilities and has a read-only root filesystem. The database program refuses any pre-existing PG_VERSION. A Downward API UID
+binds each recovery exec to its inspected pod, and an exclusive data-directory
+attempt marker prevents replay after an interrupted import. A failed or expired
+pod requires a new reviewed stage with fresh scratch storage. Database requests are
 100m CPU/256Mi and limits 1 CPU/1Gi; temporary storage is limited to 128Mi. The
 file inspector requests 25m/32Mi and limits 100m/128Mi, mounts only the restored
 scratch PVC read-only and does not apply fsGroup ownership changes.
