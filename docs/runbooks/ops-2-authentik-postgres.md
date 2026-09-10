@@ -1,16 +1,24 @@
-# OPS-2: refresh Authentik's isolated PostgreSQL
+# OPS-2: Authentik final capture and database cutover
 
-I am preparing a fresh final-restore target while retaining the rehearsal copy.
-The activation and isolated SQL rehearsal are complete. This package changes
-only the dedicated StatefulSet's `PGDATA` from `/var/lib/postgresql/18/docker`
-to `/var/lib/postgresql/18/ops2-final` on the same retained Longhorn claim.
-Merging it rolls the isolated PostgreSQL pod through ArgoCD and initializes a
-fresh bootstrap cluster with the existing administrator Secret.
+I separate the final migration into three GitOps changes. The freeze changes only
+both Authentik Helm replica counts from one to zero while preserving the shared
+source host. The intervening [native backup gate](ops-2-authentik-backup-gate.md)
+captures the dedicated dump/globals pair and provides a separate read-only reader
+for isolated recovery checks while both components remain frozen. The later
+cutover changes the host to
+`authentik-postgres.authentik.svc.cluster.local`, restores one server and one
+worker, and permits only the intended app/backup connections to the dedicated DB.
 
-Authentik keeps its shared-source connection and current server/worker replicas.
-The target remains denied ingress and egress, and its backup stays suspended.
-This refresh precedes the separately authorized writer freeze, final capture,
-restore, connection change and SSO acceptance. It does not itself migrate traffic.
+I apply the freeze only after the final target, recovery artifacts and rollback
+are ready. The cutover follows a successful frozen final capture, scoped restore,
+catalog/data/sequence checks and existing-password verification. Database egress
+stays denied and the backup CronJob stays suspended until its separate capture,
+restore and recovery gates pass. Neither change alters the image/chart pins,
+ciphertexts, claim retention or `/var/lib/postgresql/18/ops2-final` data directory.
+
+The retained rehearsal and refresh procedure below remain part of the recovery
+contract. Exact private identities, receipts and operational measurements stay
+outside this repository.
 
 ## Refresh procedure and rollback
 
@@ -113,10 +121,10 @@ namespace uses wave `-2`, allowing the same ordering during fresh-namespace
 recovery.
 
 The completed activation integrated the database and backup resources into the
-existing workload graph. This refresh retains that graph, chart values and source
-connection. The backup CronJob remains suspended. The fresh directory initializes
-only the bootstrap `postgres` role/database; final role import and database restore
-remain separate operator-run steps.
+existing workload graph. The refresh retained that graph and prepared the final
+data directory. Cutover adds only the two dedicated-DB client policies and the
+chart host/replica changes described above. The backup CronJob remains suspended.
+Final role import and database restore precede this connection change.
 
 The original administrator provisioning and activation validation are complete.
 I retain the existing ciphertext and do not repeat credential generation. Current
@@ -135,8 +143,8 @@ separate actions, not implicit parts of rollback.
 
 No imperative apply is the deployment procedure. I do not modify source data,
 roles, backups, services, tenant-init configuration or the local disk in this
-package. Production restoration, application cutover and backup enablement stay
-behind their own gates below.
+package. Restoration, application cutover and backup enablement follow the
+ordered gates below.
 
 ## Restore rehearsal gate
 
@@ -188,6 +196,45 @@ explicitly in the later cutover procedure. This refresh preserves the rehearsal
 copy in its original directory; acceptance requires the retained-data checks above.
 No source reset or implicit database replacement is part of the procedure.
 
+## Applying the final slices
+
+The freeze is independently reviewable: `server.replicas: 0` and
+`worker.replicas: 0`, with the host still `postgres.postgres.svc.cluster.local`.
+I wait for both desired and live counts to reach zero, no server/worker pods and
+no Authentik source sessions before the final capture. The existing restore
+helper must accept that frozen source and the exact refreshed target. A failed
+restore never causes an import retry or a target reset.
+
+The native backup gate follows accepted isolated SQL/login checks and precedes
+cutover. It opens backup-only database access and runs a retained fixed Job with
+no retry and a 15-minute deadline. A later-wave retained reader mounts the backup
+claim read-only after Job completion; both writers and reader use the same
+nonroot filesystem identity. I accept the exact pair through isolated restore
+and offsite readback while application writers remain frozen. Cutover preserves
+both the Job and reader and their Kustomize references unchanged, extending the
+same backup-only ingress policy to the intended application clients.
+
+The cutover restores the recorded replica counts of one each and changes only
+the PostgreSQL host in the connection settings. The new app egress and DB ingress
+policies agree on TCP 5432, same-namespace peers, chart name/instance `authentik`,
+and component `server` or `worker`. DB ingress also allows the existing
+`authentik-postgres` / `backup` labels. The namespace default-deny, DB egress deny,
+Traefik ingress and retained-source egress are preserved.
+
+The chart and configuration are separate ArgoCD Applications. Sync waves order
+resources inside the configuration Application; they do not establish ordering
+between the two Applications. I require both to reconcile before acceptance and
+verify the effective pod host, expected database identity and intended policy
+union. An app starting before its network allowance is ready may temporarily
+fail to connect; this does not justify broadening access or resuming the source
+writers in parallel.
+
+The backup's existing DNS and DB egress matches the new DB ingress, but network
+readiness does not start a backup or prove recovery. Its schedule stays suspended
+until an intentional native dump/globals pair has been captured and restored,
+the backup claim has actual healthy replicas, and independent recovery coverage
+has been verified.
+
 ## Cutover and acceptance gate
 
 I prepare the exact writer-freeze, backup-exporter and connection-change diffs
@@ -198,9 +245,14 @@ after rehearsal passes, then obtain authorization for the measured outage.
    login. The coordinator sees aggregate results only. Freeze both Authentik
    server and worker through their Helm GitOps values; wait for zero application
    sessions before the final consistent capture. Do not leave a worker writing.
-2. Retain a final complete source dump/globals set outside normal rotation, with
-   independently recoverable encrypted coverage and checksums. Restore the
-   final capture into the verified target after the explicit refresh gate.
+2. Retain a final complete source dump/globals set outside normal rotation with
+   checksums. Restore the final capture into the verified target after the
+   explicit refresh gate. While writers remain frozen, accept the native pair's
+   isolated restore, install the extended seat exporter, and export/submit the
+   complete generation. Verify that exact final pair through the ready offsite
+   reader before resuming application writers. This supplies encrypted recovery
+   coverage for the accepted frozen snapshot before cutover; the existing source
+   and its already verified historical offsite recovery remain retained throughout.
 3. Add DB ingress for only Authentik chart pods and the named backup component
    in the same namespace, plus matching app egress to the dedicated DB on 5432.
    Keep database egress denied. In the Authentik Helm values change only
@@ -222,8 +274,10 @@ after rehearsal passes, then obtain authorization for the measured outage.
    the shared archive. Its integration must preserve the target administrator:
    this target uses `POSTGRES_USER=postgres`, `POSTGRES_DB=postgres`, and explicit
    dump database `authentik`. Add both artifacts to the expected set. Verify local
-   publication, offsite snapshot membership, independent credentials and actual
-   restore; an in-cluster backup PVC alone is insufficient.
+   publication, exact offsite snapshot membership/readback and actual restore;
+   an in-cluster backup PVC alone is insufficient. Authentication from a separate
+   offline credential copy belongs to the wider recovery-custody work. Operational
+   readback through the existing offsite consumer does not claim that separate test.
 
 After healthy cutover, I retain the original Authentik database, role, secret,
 source instance and storage through the parent issue's multi-day healthy soak,
@@ -236,16 +290,34 @@ source connection allowance only in a later reviewed diff.
 
 ## Rollback and remaining OPS-2 work
 
-Before target writes, stop any target-connected app pods and return the host
-value to the retained source through GitOps, then restore the recorded replicas
-and revalidate SSO. Keep the target for diagnosis. Scaling it to zero retains
-the data; deleting a claim is not a rollback step.
+If the final restore has not been exposed to app writers, I can abandon the
+cutover by retaining the original source host and restoring the recorded one
+server and one worker through GitOps. I retain the failed target and all evidence;
+no database, role, attempt marker, data directory or claim is deleted.
 
-After target writes, pointing back to the old source loses those writes and
-can invalidate identity/session changes. I first freeze both writers, capture
-the new state, and explicitly choose either an accepted data-loss boundary or
-a rehearsed reverse logical migration. A Git revert alone is not lossless data
-rollback. Never run both production app sets against divergent databases.
+Once cutover has started app pods, I assume the target may contain new writes,
+even if no interactive login has happened. Worker tasks and startup activity can
+write data. A direct source-host revert can lose identity/session changes.
+
+For a return to the source, I prepare these ordered GitOps changes:
+
+1. Set both `server.replicas` and `worker.replicas` to zero while keeping the
+   current host. Wait for no writer pods and no application sessions. Preserve
+   a current target dump/globals pair and the final pre-cutover capture.
+2. Resolve any writes since cutover through an explicitly accepted data-loss
+   boundary or a rehearsed reverse logical migration. While both replica counts
+   remain zero, set the host to `postgres.postgres.svc.cluster.local` and remove
+   only `authentik-postgres-app-egress` and `authentik-postgres-ingress`. This
+   restores target isolation while keeping the original source allowance.
+3. Verify the frozen desired host and policy union, then restore one server and
+   one worker in a separate change. Revalidate source health, SSO and stable
+   identities. Keep both target data directories and their claims for diagnosis.
+
+The two-line freeze can be reused against the cutover values. I do not revert the
+combined cutover while writers are still running. A Git revert alone cannot
+reconcile divergent data, and I never run both production app sets against
+separate databases. These rollback changes do not imply credential rotation,
+source retirement or data deletion.
 
 Authentik preparation does not complete OPS-2. Next come the authorized final
 refresh and Authentik cutover/backup/soak, then n8n with preservation
@@ -264,10 +336,11 @@ requires separate explicit authorization and its own storage rollback limits.
 The original administrator ciphertext passed constrained SOPS MAC/decryption,
 identity/key-shape and recipient checks. The complete activation graph rendered
 14 resources; all 13 built-in resources including both Secrets passed strict
-schemas. This refresh preserves both ciphertexts, the generator and Kustomization
-byte for byte. All 12 current nonsecret resources render and pass server dry-run
-admission; their 11 built-in resources pass strict schemas with no skips. The
-private task record holds live preflight evidence and remaining rollout gates.
+schemas. The freeze/cutover retains both ciphertexts, the generator, Kustomization, storage
+and backup definitions byte for byte. The cutover adds two NetworkPolicies; I
+validate the resulting nonsecret workload graph and the separate chart Application
+through strict built-in schemas and server-side dry-run admission. The private
+task record holds validation results, live preflight evidence and rollout gates.
 
 The backup shell's synthetic tests cover complete publication, private artifact
 modes, relative manifest paths and checksums, current-protected seven-run

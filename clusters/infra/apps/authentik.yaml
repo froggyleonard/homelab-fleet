@@ -34,11 +34,11 @@ spec:
           error_reporting:
             enabled: false
           postgresql:
-            host: postgres.postgres.svc.cluster.local
+            host: authentik-postgres.authentik.svc.cluster.local
             name: authentik
             user: authentik
         server:
-          replicas: 0
+          replicas: 1
           resources:
             requests:
               cpu: 200m
@@ -47,7 +47,7 @@ spec:
               cpu: "1"
               memory: 1Gi
         worker:
-          replicas: 0
+          replicas: 1
           resources:
             requests:
               cpu: 100m
