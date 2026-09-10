@@ -1,4 +1,4 @@
-# Default-deny; UI/webhooks in via Traefik only. App egress: DNS, shared PG,
+# Default-deny; UI/webhooks in via Traefik only. App egress: DNS, dedicated PG,
 # Synapse client API (matrix ns :8008 — notification bot),
 # Traefik entrypoints (workflows call *.apps services via the cluster
 # ingress), and 443/80 out — workflows call external APIs by design.
@@ -67,9 +67,10 @@ spec:
         - port: 53
           protocol: TCP
     - to:
-        - namespaceSelector:
+        - podSelector:
             matchLabels:
-              kubernetes.io/metadata.name: postgres
+              app.kubernetes.io/name: n8n-postgres
+              app.kubernetes.io/component: db
       ports:
         - port: 5432
           protocol: TCP
@@ -101,8 +102,8 @@ spec:
           protocol: TCP
 
 ---
-# The new database remains isolated during preparation and local rehearsal.
-# Backup egress below is ineffective until a separately reviewed DB ingress gate.
+# Database egress stays denied; only the explicit app/backup ingress permits
+# connections after accepted final import and recovery.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -168,8 +169,8 @@ spec:
           protocol: TCP
 
 ---
-# This gate permits only the native backup after the accepted final import.
-# The application remains frozen on its source; DB egress remains denied.
+# The accepted cutover permits only the app and native backup to reach the DB.
+# Both are same-namespace selectors; database egress remains denied.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -194,6 +195,9 @@ spec:
             matchLabels:
               app.kubernetes.io/name: n8n-postgres
               app.kubernetes.io/component: backup
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: n8n
       ports:
         - port: 5432
           protocol: TCP
