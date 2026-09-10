@@ -1,7 +1,8 @@
-# Default-deny; UI/webhooks in via Traefik only. Egress: DNS, shared PG,
+# Default-deny; UI/webhooks in via Traefik only. App egress: DNS, shared PG,
 # Synapse client API (matrix ns :8008 — notification bot),
 # Traefik entrypoints (workflows call *.apps services via the cluster
 # ingress), and 443/80 out — workflows call external APIs by design.
+# The app selector excludes the dedicated database and backup components.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -48,7 +49,9 @@ metadata:
     app.kubernetes.io/part-of: fleet
     app.kubernetes.io/managed-by: argocd
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: n8n
   policyTypes: [Egress]
   egress:
     - to:
@@ -95,4 +98,71 @@ spec:
         - port: 443
           protocol: TCP
         - port: 80
+          protocol: TCP
+
+---
+# The new database remains isolated during preparation and local rehearsal.
+# Backup egress below is ineffective until a separately reviewed DB ingress gate.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: n8n-postgres-deny
+  namespace: n8n
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: n8n-postgres
+    app.kubernetes.io/component: db
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: n8n-postgres
+      app.kubernetes.io/component: db
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
+---
+# Backup pods can only resolve DNS and reach the dedicated database when its
+# separate ingress gate is opened. No policy grants database egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: n8n-postgres-backup
+  namespace: n8n
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    app.kubernetes.io/name: n8n-postgres
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: fleet
+    app.kubernetes.io/managed-by: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: n8n-postgres
+      app.kubernetes.io/component: backup
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: n8n-postgres
+              app.kubernetes.io/component: db
+      ports:
+        - port: 5432
           protocol: TCP
