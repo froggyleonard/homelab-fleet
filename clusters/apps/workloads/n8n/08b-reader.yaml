@@ -9,7 +9,7 @@ metadata:
   namespace: n8n
   annotations:
     argocd.argoproj.io/sync-wave: "1"
-    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    argocd.argoproj.io/sync-options: Prune=true,Delete=true
   labels:
     app.kubernetes.io/name: n8n-postgres
     app.kubernetes.io/component: backup-reader
