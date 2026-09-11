@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/froggyleonard/homelab-fleet
     targetRevision: main
-    path: clusters/apps/rehearsals/ops45/20-tempo/01-inspect
+    path: clusters/apps/rehearsals/ops45/20-tempo/02-release-prune
   destination:
     name: apps
     namespace: ops45-restore
