@@ -14,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/froggyleonard/homelab-fleet
     targetRevision: main
-    path: clusters/apps/rehearsals/ops45/20-tempo/03-remove-pvc
+    path: clusters/apps/rehearsals/ops45/20-tempo/04-remove-pv
   destination:
     name: apps
     namespace: ops45-restore
