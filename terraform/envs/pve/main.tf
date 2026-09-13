@@ -125,6 +125,9 @@ module "fleet" {
   source   = "../../modules/vm"
   for_each = { for name, vm in local.fleet : name => vm if var.apps_enabled || !startswith(name, "apps-") }
 
+  # Old infra remains off during the migration soak; retain all VM and disk resources.
+  on_boot         = !contains([201, 202, 203], each.value.vmid)
+  started         = !contains([201, 202, 203], each.value.vmid)
   name            = each.key
   vmid            = each.value.vmid
   node_name       = local.node
