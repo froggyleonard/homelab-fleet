@@ -82,5 +82,6 @@ resource "proxmox_virtual_environment_vm" "this" {
     type = "l26"
   }
 
-  on_boot = true
+  on_boot = var.on_boot
+  started = var.started
 }

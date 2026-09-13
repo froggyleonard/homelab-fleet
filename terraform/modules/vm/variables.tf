@@ -76,3 +76,15 @@ variable "ci_user" {
 variable "ssh_public_keys" {
   type = list(string)
 }
+
+variable "on_boot" {
+  description = "Start this retained guest when the Proxmox host boots"
+  type        = bool
+  default     = true
+}
+
+variable "started" {
+  description = "Desired running state; false retains the guest and its disks"
+  type        = bool
+  default     = true
+}
