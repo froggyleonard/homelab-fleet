@@ -84,4 +84,13 @@ resource "proxmox_virtual_environment_vm" "this" {
 
   on_boot = var.on_boot
   started = var.started
+
+  # Keys only matter at first boot; running guests get key changes through
+  # ansible/seat-key.yaml. Pushing a new list to an existing VM rewrites its
+  # cloud-init user-data, which changes the NoCloud instance-id, so the guest
+  # regenerates its SSH host keys on the next reboot. New VMs still get the
+  # current list.
+  lifecycle {
+    ignore_changes = [initialization[0].user_account[0].keys]
+  }
 }
