@@ -27,7 +27,12 @@ locals {
   # cross-VLAN rules. Static IP below the DHCP pool (.100-.200). Tagged "dev",
   # not "fleet": cluster automation must never pick it up.
   dev = {
-    dev-ws1 = { vmid = 220, cores = 8, mem = 16384, vlan = 20, ip = "${var.net_prefix}.20.21", gw = local.gw_user, os_gb = 60, extra = [] }
+    dev-ws1 = { vmid = 220, cores = 8, mem = 16384, vlan = 20, ip = "${var.net_prefix}.20.21", gw = local.gw_user, os_gb = 60, extra = [
+      # Bulk scratch, evidence and archives on the HDD pool, so the 60G SSD root
+      # stops filling up. Excluded from vzdump: its archives land on this same
+      # pool, so they would add nightly cost without independent recovery.
+      { datastore = "Media", interface = "scsi1", size_gb = 200, backup = false },
+    ] }
   }
 
   fleet = {
