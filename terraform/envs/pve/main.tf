@@ -27,6 +27,11 @@ locals {
   # cross-VLAN rules. Static IP below the DHCP pool (.100-.200). Tagged "dev",
   # not "fleet": cluster automation must never pick it up.
   dev = {
+    # dev-ws1 also has a hand-attached 200G scratch disk (scsi1 on Media,
+    # backup=0, discard=on), hot-plugged 2026-09-14 while the seat could not
+    # reboot. The provider ignores disks missing from state, so it stays out of
+    # `extra`: declaring it here plans a new scsi1 and would swap out the live
+    # volume. Reconcile state before ever managing it here.
     dev-ws1 = { vmid = 220, cores = 8, mem = 16384, vlan = 20, ip = "${var.net_prefix}.20.21", gw = local.gw_user, os_gb = 60, extra = [] }
   }
 
