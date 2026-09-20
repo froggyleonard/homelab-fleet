@@ -1,5 +1,47 @@
 # Mimir LACP migration
 
+## Deployment gate: platform networking and CNI
+
+**Do not retry the prepared candidate unchanged.** The approved no-reboot trial
+was rolled back; final LACP is not deployed. The host's active and persistent
+machine configurations and both switch configurations were verified against
+their pre-trial baselines afterward.
+
+The first trial exposed two prerequisites that machine-config validation and
+the no-reboot dry-run did not detect:
+
+- Metal platform/META networking still owns an address and preferred default
+  route on the proposed primary slave. Replacing its LinkConfig does not remove
+  these independent platform-layer resources. The trial therefore retained an
+  address on the slave as well as the bond and a route through the slave.
+- Cilium explicitly selects the old physical interface. Its deployment source,
+  effective device selection and any direct-routing device pin must be reviewed
+  for the bond. Do not silently restart the CNI agents as part of a host-only
+  approval; obtain approval for the expanded change and potential rollout.
+
+Before another trial, privately back up the exact platform/META network value,
+preserve unrelated resolver settings and all other META keys, and prepare a
+separately reviewed update and rollback. Verify the original physical-link
+machine configuration independently supplies the current address, gateway and
+DNS before removing redundant platform ownership. Machine-config `try` mode
+is not a rollback mechanism for separate META writes or Kubernetes/Helm changes.
+Do not erase the META partition or change boot media as a shortcut.
+
+Inspect all configuration layers, not only effective address status or the
+machine YAML. On the observed release, `talosctl get meta` exposes the platform
+network key with resource ID `10`; the META subcommand uses numeric key `0xa`.
+Check identifiers against live resource discovery rather than guessing an ID.
+Keep the resource value and rendered configuration out of public Git.
+
+After a configuration apply, machine-config enumeration may contain both
+`v1alpha1` (active) and `persistent` resources. Select by ID and parse each
+resource's string-valued `spec`; do not assume one returned resource. Verify
+active and persistent configurations separately when confirming or rolling back.
+
+Check physical NIC state after rollback as well: releasing the bond can leave
+an otherwise unconfigured secondary NIC down even though the primary path has
+recovered. Do not claim that both cables are operational from config equality.
+
 ## Scope and authority
 
 I intend to aggregate the two Mimir cables on GigabitEthernet0/2 and
