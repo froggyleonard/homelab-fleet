@@ -57,15 +57,24 @@ Do not save startup configuration yet.
 
 ## Verify a fresh non-interactive session
 
-Use the dedicated key, batch mode, no agent fallback and the expected host key:
+Use the dedicated key, batch mode, no agent fallback and the expected host key.
+For reliable automation, prefer a prompt-synchronized PTY shell:
 
 ```bash
-plink -batch -noagent -hostkey '<EXPECTED_HOSTKEY_SHA256>' \
-  -i '<PRIVATE_PPK_PATH>' '<EXISTING_ACCOUNT>@<SWITCH_HOST>' 'show version'
+plink -batch -noagent -t -hostkey '<EXPECTED_HOSTKEY_SHA256>' \
+  -i '<PRIVATE_PPK_PATH>' '<EXISTING_ACCOUNT>@<SWITCH_HOST>'
 ```
 
-Repeat in separate sessions for `show privilege` and the targeted public-key
-stanza. Success requires the expected switch identity, no password or local
+Drive this with a bounded expect-style client: wait for the exact device prompt,
+send `terminal length 0`, wait for the prompt again, and send each inspection
+command separately. Wait for the final prompt before sending `exit`, then wait
+for EOF and check the client exit status. Keep raw session logging disabled.
+A one-shot exec command or a batch piped all at once may return output and then
+report an unexpected disconnect. Never globally suppress that error or treat
+partial output as success; use the paced shell and explicit readbacks instead.
+
+Test `show version`, `show privilege` and the targeted public-key stanza, including
+checks through separate fresh sessions. Success requires the expected switch identity, no password or local
 confirmation prompt, correct privilege for the requested work, and the intended
 key entry. Verify a separate operator password login still works. Do not print
 raw running configuration or any passwords/private keys to logs.
