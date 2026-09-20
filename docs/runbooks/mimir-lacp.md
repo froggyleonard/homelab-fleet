@@ -33,8 +33,15 @@ other target port and protected uplinks are unchanged. Test the expected node's
 Kubernetes and Talos endpoints from the management seat. Allow for normal STP
 convergence; do not bounce a port to hurry recovery.
 
-If the intended host does not respond, stop and investigate. Do not automatically
-move the second cable to the same network or invent an interface name.
+If the intended host does not respond, stop and investigate. Confirm the first
+port is forwarding VLAN 100 and there are no unexpected bundles or host bridges.
+When both cables are confirmed to belong to Mimir and approval covers both
+ports, `network/bifrost/mimir-recovery-secondary.cfg` can restore the second link
+to standalone access VLAN 100 to discover which NIC carries the configured host
+address. Capture a new baseline, preserve the first port and all unrelated
+configuration, then repeat API/link checks. This is conditional recovery, not
+LACP enrollment. Do not invent host NIC names or continue to an aggregate while
+the host remains unreachable.
 
 ### Recovery-stage rollback
 
