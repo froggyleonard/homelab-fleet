@@ -81,10 +81,41 @@ apply the full host configuration blindly if it could introduce unrelated drift.
 
 ## Stage 3: coordinated cutover and acceptance
 
+Prepared artifacts:
+
+- `network/mimir/bond.yaml.tmpl`: native BondConfig. Render address and full routes
+  from a fresh live LinkConfig into a private candidate; replace that physical
+  LinkConfig and preserve every other document and credential semantically.
+- `network/bifrost/mimir-lacp-secondary.cfg`: prepare the unused logical bundle
+  and only the secondary member. Requires confirmed NIC-to-port mapping.
+- `network/bifrost/mimir-lacp-primary.cfg`: add the primary member only after
+  the host bond is reachable through the secondary member.
+
+Do not apply the switch fragments as one concatenated batch. First validate the
+full private Talos candidate with the release-matched client and perform an
+authenticated `apply-config --dry-run --mode no-reboot`. A successful dry-run is
+not authorization for a real host network change.
+
+After explicit host-side approval, stage only the secondary switch member and
+verify the primary access path still works. If it does not, restore the secondary
+port's previous standalone access configuration before proceeding. Apply the
+host candidate using supported `try` mode with a bounded five-minute rollback
+window; retain an independent management path to the switch. Confirm the host
+address, APIs and the secondary bond member, then join the primary switch member.
+Check both collecting/distributing members and the APIs again. Commit the host
+candidate using `no-reboot` only after successful checks, before the trial expires.
+Read back the actual host machine configuration and network state afterward.
+
+If the trial fails or its deadline is approaching without conclusive verification,
+restore both switch members to the captured standalone access state and allow
+Talos to revert. Do not leave the old physical-interface host configuration facing
+an LACP-only switch bundle. Record actual trial timing locally; never assume
+that issuing a command means it was accepted or that a disconnect proves rollback.
+
 The host-side bond and switch member configuration must be coordinated. Do not
 leave the primary link suspended waiting for a host bond that has not been
-applied. Work out the exact sequencing from observed platform behavior before
-applying the final configuration.
+applied. Reconfirm live configuration has not drifted from the private candidate's
+baseline immediately before each stage.
 
 Required acceptance checks:
 
