@@ -45,7 +45,7 @@ spec:
     spec:
       containers:
         - name: mas
-          image: ghcr.io/element-hq/matrix-authentication-service:1.23.0@sha256:e82b2e4a5f9c7ca74096743349160795f5b5a792556fb85c6b5166a9180a5985
+          image: ghcr.io/element-hq/matrix-authentication-service:1.29.0@sha256:9247315c9e86096aaaa393c7b4b685dc506010e09ff4b89331ef2ed4854167af
           args: ["server", "--config", "/config/mas-config.yaml"]
           ports:
             - name: http
